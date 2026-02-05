@@ -99,25 +99,41 @@ class PortfolioOptimizer:
         # Descargar datos
         try:
             import yfinance as yf
-            data = yf.download(tickers, period=period, progress=False)
+            data = yf.download(tickers, period=period, progress=False, auto_adjust=True)
             
-            # Verificar tipo de datos
-            if 'Adj Close' in data.columns or isinstance(data.columns, pd.MultiIndex):
-                if isinstance(data.columns, pd.MultiIndex):
+            # Manejar diferentes formatos de yfinance
+            if isinstance(data.columns, pd.MultiIndex):
+                # Multi-ticker download
+                if 'Adj Close' in data.columns.get_level_values(0):
                     prices = data['Adj Close']
+                elif 'Close' in data.columns.get_level_values(0):
+                    prices = data['Close']
                 else:
-                    prices = data[['Adj Close']]
-                    prices.columns = tickers
+                    # Intentar con el primer nivel
+                    prices = data.iloc[:, data.columns.get_level_values(0) == data.columns.get_level_values(0)[0]]
+                    prices.columns = prices.columns.droplevel(0)
             else:
-                prices = data
+                # Single ticker o formato simple
+                if 'Adj Close' in data.columns:
+                    prices = data[['Adj Close']]
+                    prices.columns = tickers if len(tickers) == 1 else prices.columns
+                elif 'Close' in data.columns:
+                    prices = data[['Close']]
+                    prices.columns = tickers if len(tickers) == 1 else prices.columns
+                else:
+                    prices = data
             
-            if prices.empty or len(prices) < 100:
+            if prices.empty or len(prices) < 50:
                 return None, "❌ Datos históricos insuficientes."
             
             # Limpiar NaN
             prices = prices.dropna()
             
+            if len(prices) < 50:
+                return None, "❌ Datos insuficientes después de limpiar valores faltantes."
+            
         except Exception as e:
+            logger.error(f"Error descargando datos para optimización: {e}")
             return None, f"❌ Error descargando datos: {str(e)}"
         
         # Si pypfopt está disponible, usar optimización avanzada
@@ -288,8 +304,21 @@ class PortfolioOptimizer:
             import yfinance as yf
             from pypfopt import EfficientFrontier, risk_models, expected_returns
             
-            data = yf.download(tickers, period=period, progress=False)
-            prices = data['Adj Close'] if 'Adj Close' in data.columns else data
+            data = yf.download(tickers, period=period, progress=False, auto_adjust=True)
+            # Manejar diferentes formatos de yfinance
+            if isinstance(data.columns, pd.MultiIndex):
+                if 'Adj Close' in data.columns.get_level_values(0):
+                    prices = data['Adj Close']
+                elif 'Close' in data.columns.get_level_values(0):
+                    prices = data['Close']
+                else:
+                    prices = data
+            elif 'Adj Close' in data.columns:
+                prices = data['Adj Close']
+            elif 'Close' in data.columns:
+                prices = data['Close']
+            else:
+                prices = data
             
             mu = expected_returns.mean_historical_return(prices)
             S = risk_models.sample_cov(prices)
@@ -342,8 +371,21 @@ class PortfolioOptimizer:
         try:
             import yfinance as yf
             
-            data = yf.download(tickers, period=period, progress=False)
-            prices = data['Adj Close'] if 'Adj Close' in data.columns else data
+            data = yf.download(tickers, period=period, progress=False, auto_adjust=True)
+            # Manejar diferentes formatos de yfinance
+            if isinstance(data.columns, pd.MultiIndex):
+                if 'Adj Close' in data.columns.get_level_values(0):
+                    prices = data['Adj Close']
+                elif 'Close' in data.columns.get_level_values(0):
+                    prices = data['Close']
+                else:
+                    prices = data
+            elif 'Adj Close' in data.columns:
+                prices = data['Adj Close']
+            elif 'Close' in data.columns:
+                prices = data['Close']
+            else:
+                prices = data
             returns = prices.pct_change().dropna()
             
             # Covarianza anualizada
