@@ -84,12 +84,17 @@ class SECAnalyzer:
     def get_cik(self, ticker: str) -> Optional[str]:
         """Obtiene el CIK (Central Index Key) de un ticker."""
         if ticker in self._cik_cache:
+            logger.info(f"CIK para {ticker} encontrado en cache: {self._cik_cache[ticker]}")
             return self._cik_cache[ticker]
+        
+        logger.info(f"Buscando CIK para {ticker}...")
         
         try:
             # Usar el mapping oficial de SEC
             mapping_url = "https://www.sec.gov/files/company_tickers.json"
             response = self._session.get(mapping_url, timeout=10)
+            
+            logger.info(f"Respuesta SEC tickers: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
@@ -97,7 +102,12 @@ class SECAnalyzer:
                     if entry.get("ticker", "").upper() == ticker.upper():
                         cik = str(entry.get("cik_str", "")).zfill(10)
                         self._cik_cache[ticker] = cik
+                        logger.info(f"CIK encontrado para {ticker}: {cik}")
                         return cik
+                
+                logger.warning(f"Ticker {ticker} no encontrado en la lista de SEC")
+            else:
+                logger.error(f"Error obteniendo lista de tickers SEC: {response.status_code}")
             
             return None
             
@@ -105,8 +115,7 @@ class SECAnalyzer:
             logger.error(f"Error obteniendo CIK para {ticker}: {e}")
             return None
     
-    @st.cache_data(ttl=3600, show_spinner=False)
-    def get_recent_filings(_self, ticker: str, form_types: List[str] = None) -> List[Dict]:
+    def get_recent_filings(self, ticker: str, form_types: List[str] = None) -> List[Dict]:
         """
         Obtiene los filings recientes de una empresa.
         
@@ -120,17 +129,28 @@ class SECAnalyzer:
         if form_types is None:
             form_types = ["10-K", "10-Q"]
         
-        cik = _self.get_cik(ticker)
+        logger.info(f"Buscando filings para {ticker}, tipos: {form_types}")
+        
+        cik = self.get_cik(ticker)
         if not cik:
             logger.error(f"No se encontró CIK para {ticker}")
+            st.warning(f"⚠️ No se encontró CIK para '{ticker}'. Verifica que sea un ticker válido de una empresa de EE.UU.")
             return []
+        
+        logger.info(f"CIK encontrado para {ticker}: {cik}")
         
         try:
             # Obtener submissions
             url = SEC_EDGAR_SUBMISSIONS.format(cik=cik.lstrip('0'))
-            response = _self._session.get(url, timeout=15)
+            logger.info(f"Consultando SEC EDGAR: {url}")
+            
+            response = self._session.get(url, timeout=15)
+            
+            logger.info(f"Respuesta SEC: {response.status_code}")
             
             if response.status_code != 200:
+                logger.error(f"Error de SEC API: {response.status_code} - {response.text[:200]}")
+                st.error(f"❌ Error al consultar SEC (código {response.status_code})")
                 return []
             
             data = response.json()
@@ -142,6 +162,8 @@ class SECAnalyzer:
             dates = recent.get("filingDate", [])
             accessions = recent.get("accessionNumber", [])
             documents = recent.get("primaryDocument", [])
+            
+            logger.info(f"Encontrados {len(forms)} filings totales para {ticker}")
             
             for i, form in enumerate(forms):
                 if form in form_types:
@@ -158,10 +180,24 @@ class SECAnalyzer:
                 if len(filings) >= 10:
                     break
             
+            logger.info(f"Filings filtrados: {len(filings)} de tipos {form_types}")
+            
+            if not filings:
+                st.info(f"ℹ️ No se encontraron filings de tipo {form_types} para {ticker}")
+            
             return filings
             
+        except requests.exceptions.Timeout:
+            logger.error(f"Timeout al consultar SEC para {ticker}")
+            st.error("❌ Timeout al consultar SEC. Intenta de nuevo.")
+            return []
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error de red al consultar SEC: {e}")
+            st.error(f"❌ Error de red: {e}")
+            return []
         except Exception as e:
             logger.error(f"Error obteniendo filings de {ticker}: {e}")
+            st.error(f"❌ Error inesperado: {e}")
             return []
     
     def download_filing(self, filing_info: Dict) -> Optional[SECFiling]:
