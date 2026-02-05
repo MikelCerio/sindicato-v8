@@ -1,0 +1,65 @@
+# 🏛️ Sindicato V8 ELITE - Dependencies
+# Compatible con Python 3.10+
+
+# Core Streamlit
+streamlit>=1.30.0
+
+# Data & Finance
+yfinance>=0.2.35
+pandas>=2.0.0
+numpy>=1.24.0
+
+# AI/LLM
+crewai>=0.28.0
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-community>=0.0.20
+openai>=1.10.0
+
+# Vector Store
+faiss-cpu>=1.7.4
+
+# Document Processing
+pdfplumber>=0.10.0
+beautifulsoup4>=4.12.0
+
+# NLP
+textblob>=0.17.1
+
+# PDF Generation
+reportlab>=4.0.0
+
+# Visualization
+plotly>=5.18.0
+
+# Utils
+python-dotenv>=1.0.0
+
+# ============================================================================
+# 🆕 ELITE FEATURES
+# ============================================================================
+
+# OpenBB Platform - Datos Institucionales
+# Descomenta la línea de abajo si quieres el paquete completo (puede tardar en instalar)
+# openbb[all]>=4.0.0
+
+# OpenBB Lite (solo providers básicos, instalación más rápida)
+openbb>=4.0.0
+
+# Portfolio Optimization - Markowitz & Efficient Frontier
+pypfopt>=1.5.5
+
+# ============================================================================
+# NOTAS DE INSTALACIÓN
+# ============================================================================
+# 
+# Para instalación rápida en Colab:
+#   !pip install -q streamlit yfinance pandas numpy crewai langchain langchain-openai openai faiss-cpu pdfplumber beautifulsoup4 textblob reportlab plotly python-dotenv openbb pypfopt
+#
+# Para instalación completa (recomendado en local):
+#   pip install -r requirements.txt
+#
+# API Keys necesarias (configurar en .env):
+#   OPENAI_API_KEY=sk-...
+#
+
