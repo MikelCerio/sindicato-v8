@@ -35,7 +35,9 @@ from services import (
     OpenBBService, PortfolioOptimizer, KnowledgeLibrary,
     create_portfolio_pie_chart, create_efficient_frontier_chart,
     add_essential_wisdom,
-    HTMLReportRenderer  # Report renderer estilo FinRobot
+    HTMLReportRenderer,  # Report renderer estilo FinRobot
+    # === SEC ANALYZER (FinRobot-inspired) ===
+    SECAnalyzer, format_filing_date, get_filing_icon
 )
 from agents import InvestmentCommittee, MentorAgent
 
@@ -66,6 +68,7 @@ def init_state():
         'optimizer': PortfolioOptimizer(),
         'library': KnowledgeLibrary(),
         'renderer': HTMLReportRenderer(),  # HTML Report Generator
+        'sec_analyzer': SECAnalyzer(),  # SEC Filings Analyzer
         
         # === STATE ===
         'active_doc_name': None,
@@ -148,8 +151,9 @@ tabs = st.tabs([
     "🦈 COMITÉ",
     "⚖️ VEREDICTO",
     "📚 BIBLIOTECA",
-    "👨🏫 MENTOR",
-    "📂 DOCS"
+    "👨‍🏫 MENTOR",
+    "📂 DOCS",
+    "📄 SEC"  # Nuevo tab de SEC Filings
 ])
 
 # ============================================================================
@@ -742,8 +746,199 @@ with tabs[9]:
         st.info("Sin historial de análisis")
 
 # ============================================================================
+# TAB 11: SEC FILINGS ANALYZER (FinRobot-inspired)
+# ============================================================================
+
+with tabs[10]:
+    st.header("📄 SEC Filings Analyzer")
+    st.caption("Análisis automático de 10-K, 10-Q y otros documentos SEC • Inspirado en FinRobot")
+    
+    sec = st.session_state.sec_analyzer
+    
+    # Búsqueda de filings
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        search_ticker = st.text_input("🔍 Buscar filings por ticker", ticker, key="sec_ticker")
+    
+    with col2:
+        form_types = st.multiselect(
+            "Tipo de filing",
+            ["10-K", "10-Q", "8-K", "DEF 14A"],
+            default=["10-K", "10-Q"]
+        )
+    
+    if st.button("🔍 Buscar Filings", key="search_sec"):
+        with st.spinner("Buscando en SEC EDGAR..."):
+            filings = sec.get_recent_filings(search_ticker, form_types)
+            st.session_state['sec_filings_list'] = filings
+    
+    # Mostrar filings encontrados
+    if 'sec_filings_list' in st.session_state and st.session_state['sec_filings_list']:
+        filings = st.session_state['sec_filings_list']
+        
+        st.subheader(f"📋 Filings de {search_ticker} ({len(filings)} encontrados)")
+        
+        # Tabla de filings
+        for i, f in enumerate(filings[:8]):
+            icon = get_filing_icon(f['form_type'])
+            date_fmt = format_filing_date(f['filing_date'])
+            
+            col1, col2, col3 = st.columns([2, 1, 1])
+            col1.write(f"{icon} **{f['form_type']}** - {date_fmt}")
+            col2.write(f"📄 {f['primary_document'][:30]}...")
+            
+            if col3.button("📥 Analizar", key=f"analyze_{i}"):
+                st.session_state['selected_filing'] = f
+                st.session_state['filing_analyzed'] = None
+    
+    # Análisis del filing seleccionado
+    if 'selected_filing' in st.session_state and st.session_state['selected_filing']:
+        selected = st.session_state['selected_filing']
+        
+        st.markdown("---")
+        st.subheader(f"📊 Analizando: {selected['form_type']} ({format_filing_date(selected['filing_date'])})")
+        
+        # Descargar y analizar
+        if 'filing_analyzed' not in st.session_state or st.session_state['filing_analyzed'] is None:
+            with st.spinner("🔄 Descargando y analizando filing (puede tardar 30-60 segundos)..."):
+                filing = sec.download_filing(selected)
+                
+                if filing:
+                    # Análisis con LLM
+                    analyzed = sec.analyze_filing(filing)
+                    st.session_state['filing_analyzed'] = analyzed
+                    st.rerun()
+                else:
+                    st.error("❌ Error descargando el filing")
+        
+        # Mostrar análisis
+        if 'filing_analyzed' in st.session_state and st.session_state['filing_analyzed']:
+            analyzed = st.session_state['filing_analyzed']
+            
+            # Layout en columnas
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                # Resumen Ejecutivo
+                st.markdown("### 📋 Resumen Ejecutivo")
+                if analyzed.executive_summary:
+                    st.info(analyzed.executive_summary)
+                else:
+                    st.warning("No se pudo generar resumen")
+                
+                # Análisis completo
+                if analyzed.metrics.get('full_analysis'):
+                    with st.expander("📖 Ver Análisis Completo", expanded=False):
+                        st.markdown(analyzed.metrics['full_analysis'])
+            
+            with col2:
+                # Red Flags
+                st.markdown("### 🔴 Red Flags")
+                if analyzed.red_flags:
+                    for flag in analyzed.red_flags[:5]:
+                        st.warning(f"⚠️ {flag}")
+                else:
+                    st.success("✅ Sin red flags significativos")
+                
+                # Key Insights
+                st.markdown("### 💡 Key Insights")
+                if analyzed.key_insights:
+                    for insight in analyzed.key_insights[:5]:
+                        st.write(f"• {insight}")
+            
+            # Bull vs Bear
+            st.markdown("---")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("### 🐂 Bull Case")
+                bull = analyzed.metrics.get('bull_case', 'No disponible')
+                st.success(bull if bull else "No disponible")
+            
+            with col2:
+                st.markdown("### 🐻 Bear Case")
+                bear = analyzed.metrics.get('bear_case', 'No disponible')
+                st.error(bear if bear else "No disponible")
+            
+            # Secciones del documento
+            st.markdown("---")
+            st.markdown("### 📑 Secciones del Documento")
+            
+            sec_tabs = st.tabs(["Business", "Risk Factors", "MD&A", "Financials"])
+            
+            with sec_tabs[0]:
+                if analyzed.business_description:
+                    st.text_area("Business Description", analyzed.business_description[:5000], height=300)
+                else:
+                    st.info("Sección no encontrada")
+            
+            with sec_tabs[1]:
+                if analyzed.risk_factors:
+                    st.text_area("Risk Factors", analyzed.risk_factors[:5000], height=300)
+                else:
+                    st.info("Sección no encontrada")
+            
+            with sec_tabs[2]:
+                if analyzed.md_and_a:
+                    st.text_area("Management Discussion & Analysis", analyzed.md_and_a[:5000], height=300)
+                else:
+                    st.info("Sección no encontrada")
+            
+            with sec_tabs[3]:
+                if analyzed.financial_statements:
+                    st.text_area("Financial Statements", analyzed.financial_statements[:5000], height=300)
+                else:
+                    st.info("Sección no encontrada")
+            
+            # Botón para indexar en Oráculo
+            st.markdown("---")
+            if st.button("🧠 Indexar en Base de Conocimiento", key="index_sec"):
+                with st.spinner("Indexando filing..."):
+                    # Crear contenido para indexar
+                    content = f"""
+                    {analyzed.form_type} - {analyzed.ticker} ({analyzed.filing_date})
+                    
+                    RESUMEN: {analyzed.executive_summary}
+                    
+                    BUSINESS: {analyzed.business_description[:3000] if analyzed.business_description else ''}
+                    
+                    RISKS: {analyzed.risk_factors[:3000] if analyzed.risk_factors else ''}
+                    
+                    MD&A: {analyzed.md_and_a[:3000] if analyzed.md_and_a else ''}
+                    """
+                    # Aquí se podría añadir al OraculoV8
+                    st.success(f"✅ Filing indexado. Ahora puedes hacer preguntas sobre este documento.")
+    
+    else:
+        # Instrucciones iniciales
+        st.markdown("""
+        ### 📚 ¿Cómo usar el SEC Analyzer?
+        
+        1. **Busca** por ticker (ej: AAPL, TSLA, MSFT)
+        2. **Selecciona** el tipo de filing (10-K anual, 10-Q trimestral)
+        3. **Analiza** el documento automáticamente con IA
+        4. **Aprende** de los insights, red flags y recomendaciones
+        
+        ---
+        
+        #### 📖 ¿Qué es cada tipo de filing?
+        
+        | Filing | Descripción |
+        |--------|-------------|
+        | **10-K** | Informe anual completo (estados financieros, riesgos, estrategia) |
+        | **10-Q** | Informe trimestral (actualización financiera) |
+        | **8-K** | Eventos importantes (adquisiciones, cambios ejecutivos) |
+        | **DEF 14A** | Proxy statement (compensación ejecutivos, votaciones) |
+        
+        ---
+        
+        💡 **Tip:** Los 10-K son los más completos y útiles para análisis fundamental profundo.
+        """)
+
+# ============================================================================
 # FOOTER
 # ============================================================================
 
 st.markdown("---")
-st.caption("🏛️ **Sindicato V8 ELITE** | Chain of Thought • Markowitz Optimizer • Knowledge Library | Capital Preservation First")
+st.caption("🏛️ **Sindicato V8 ELITE** | Chain of Thought • Markowitz Optimizer • Knowledge Library • SEC Analyzer | Capital Preservation First")

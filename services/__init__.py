@@ -26,6 +26,7 @@ from .knowledge_library import (
     add_essential_wisdom
 )
 from .report_renderer import HTMLReportRenderer
+from .sec_analyzer import SECAnalyzer, SECFiling, format_filing_date, get_filing_icon
 
 __all__ = [
     # Core Services
@@ -53,5 +54,10 @@ __all__ = [
     'SearchResult',
     'add_essential_wisdom',
     'HTMLReportRenderer',
+    
+    # SEC Analyzer (FinRobot-inspired)
+    'SECAnalyzer',
+    'SECFiling',
+    'format_filing_date',
+    'get_filing_icon',
 ]
-
