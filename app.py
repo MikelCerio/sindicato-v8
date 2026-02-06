@@ -37,7 +37,9 @@ from services import (
     add_essential_wisdom,
     HTMLReportRenderer,  # Report renderer estilo FinRobot
     # === SEC ANALYZER (FinRobot-inspired) ===
-    SECAnalyzer, format_filing_date, get_filing_icon
+    SECAnalyzer, format_filing_date, get_filing_icon,
+    # === SCREENER (Discovery) ===
+    ScreenerService
 )
 from agents import InvestmentCommittee, MentorAgent
 
@@ -69,6 +71,7 @@ def init_state():
         'library': KnowledgeLibrary(),
         'renderer': HTMLReportRenderer(),  # HTML Report Generator
         'sec_analyzer': SECAnalyzer(),  # SEC Filings Analyzer
+        'screener': ScreenerService(),  # Stock Screener/Discovery
         
         # === STATE ===
         'active_doc_name': None,
@@ -145,6 +148,7 @@ ticker = st.text_input("🎯 TICKER PARA ANALIZAR", "TSLA").upper()
 tabs = st.tabs([
     "📊 DATOS",
     "🧠 OPENBB",
+    "🕵️ DESCUBRIR",  # Nuevo tab de Screener
     "📈 GRÁFICOS", 
     "🔄 COMPARAR",
     "⚖️ OPTIMIZER",
@@ -295,7 +299,91 @@ with tabs[1]:
 # TAB 3: GRÁFICOS
 # ============================================================================
 
+# ============================================================================
+# TAB 3: DESCUBRIR (SCREENER)
+# ============================================================================
+
 with tabs[2]:
+    st.header(f"🕵️ Radar de Oportunidades: Sector {ticker}")
+    
+    st.info("""
+    **¿Cómo funciona?**
+    1. Busca empresas similares a tu ticker (mismo sector)
+    2. Las analiza con criterios Alpha o Institucionales
+    3. Te muestra cuál es la mejor alternativa según los datos
+    """)
+    
+    col_mode, col_btn = st.columns([3, 1])
+    with col_mode:
+        mode_screen = st.radio(
+            "Criterio de Búsqueda:", 
+            ["Institucional (Blue Chips)", "Alpha (Small Cap)"], 
+            horizontal=True,
+            help="Institucional: Busca solidez. Alpha: Busca gemas con ownership y ROCE alto"
+        )
+        mode_key = "small_cap" if "Alpha" in mode_screen else "standard"
+    
+    with col_btn:
+        st.write("")  # Espacio
+        run_screen = st.button("🚀 Buscar Gemas", type="primary")
+
+    if run_screen:
+        st.info(f"Buscando empresas similares a {ticker} y aplicando filtro {mode_screen}...")
+        
+        # Ejecutar Screener
+        df_results = st.session_state.screener.run_screen(ticker, mode=mode_key)
+        
+        if not df_results.empty:
+            # Destacar la ganadora
+            best = df_results.iloc[0]
+            
+            if best['Ticker'] == ticker:
+                st.success(f"🏆 **{ticker}** es la mejor opción del sector según los criterios {mode_screen}")
+            else:
+                st.warning(f"🔍 Encontré una alternativa mejor: **{best['Ticker']}** ({best['Tag']})")
+            
+            # Mostrar Tabla Interactiva
+            st.dataframe(
+                df_results,
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Leyenda
+            with st.expander("📖 ¿Cómo se calcula el Score?"):
+                if mode_key == "small_cap":
+                    st.markdown("""
+                    **Criterios Alpha (Small Cap):**
+                    - ✅ **+2 puntos**: Deuda/Equity < 0.5 (deuda baja)
+                    - ✅ **+3 puntos**: ROE > 15% (negocio de calidad)
+                    - ✅ **+1 punto**: P/E entre 0 y 25 (valoración razonable)
+                    - ✅ **+1 punto**: Margen > 10%
+                    - ❌ **-2 puntos**: Deuda/Equity > 1.5 (deuda alta)
+                    
+                    **Score ≥ 4**: 💎 Posible Gema  
+                    **Score 2-3**: ⚠️ Revisar  
+                    **Score < 2**: ❌ Evitar
+                    """)
+                else:
+                    st.markdown("""
+                    **Criterios Institucionales:**
+                    - ✅ **+1 punto**: ROE > 10%
+                    - ✅ **+1 punto**: P/E < 30
+                    - ✅ **+1 punto**: Deuda/Equity < 1.0
+                    - ✅ **+1 punto**: Margen > 8%
+                    
+                    **Score ≥ 3**: 🏢 Sólida  
+                    **Score 2**: 📊 Neutral  
+                    **Score < 2**: 📉 Débil
+                    """)
+        else:
+            st.warning("No se encontraron datos suficientes de competidores.")
+
+# ============================================================================
+# TAB 4: GRÁFICOS
+# ============================================================================
+
+with tabs[3]:
     st.header(f"📈 {ticker} - Gráficos")
     
     period = st.selectbox("Período", ["1mo", "3mo", "6mo", "1y", "2y"], index=3)
@@ -311,10 +399,10 @@ with tabs[2]:
         st.plotly_chart(perf, use_container_width=True)
 
 # ============================================================================
-# TAB 4: COMPARAR
+# TAB 5: COMPARAR
 # ============================================================================
 
-with tabs[3]:
+with tabs[4]:
     st.header("🔄 Comparativa de Tickers")
     
     tickers_input = st.text_input("Tickers (separados por coma)", "AAPL, MSFT, GOOGL, TSLA")
@@ -365,10 +453,10 @@ with tabs[3]:
             )
 
 # ============================================================================
-# TAB 5: PORTFOLIO OPTIMIZER
+# TAB 6: OPTIMIZER
 # ============================================================================
 
-with tabs[4]:
+with tabs[5]:
     st.header("⚖️ Portfolio Optimizer (Markowitz)")
     st.caption("Optimización científica usando Modern Portfolio Theory")
     
@@ -460,34 +548,56 @@ with tabs[4]:
 # TAB 6: COMITÉ
 # ============================================================================
 
-with tabs[5]:
+with tabs[6]:  # Actualizado de tabs[5] a tabs[6]
     st.header("🦈 Auditoría Institucional")
     st.caption(f"Macro: {macro.brief}")
+    
+    # === SELECTOR DE MODO (NUEVO) ===
+    col_info, col_mode = st.columns([3, 1])
+    with col_info:
+        st.info("📚 Sube el Annual Report (PDF) en la pestaña DOCS para análisis completo")
+    with col_mode:
+        modo_analisis = st.radio(
+            "Perfil del Analista:",
+            ["Institucional", "Alpha (Small Cap)"],
+            index=0,
+            help="Institucional: Análisis macro y preservación de capital. Alpha: Skin in the game y ROCE"
+        )
+    
+    # Mapear la elección al código
+    mode_key = "small_cap" if "Alpha" in modo_analisis else "standard"
+    # ================================
     
     # Enrich with library wisdom
     library_context = ""
     if st.session_state.library.is_loaded:
-        st.info("📚 La biblioteca de sabiduría enriquecerá el análisis")
+        st.success("📚 La biblioteca de sabiduría enriquecerá el análisis")
         library_context = st.session_state.library.get_wisdom_for_topic("valuation")
     
     if not st.session_state.oraculo.is_loaded:
-        st.warning("⚠️ Carga un 10-K en la pestaña DOCS para análisis completo")
+        st.warning("⚠️ Para Small Caps es CRÍTICO que subas el 10-K en DOCS")
     
-    if st.button("🔥 AUDITAR", use_container_width=True):
-        with st.spinner("Auditando con Chain of Thought... (60-90s)"):
+    if st.button("🔥 AUDITAR", use_container_width=True, type="primary"):
+        with st.spinner(f"Auditando con perfil {modo_analisis}... (60-90s)"):
             ctx = st.session_state.oraculo.get_financial_context() if st.session_state.oraculo.is_loaded else {}
             
             # Enrich context with library wisdom
             if library_context:
                 ctx['wisdom'] = library_context
             
-            result = st.session_state.committee.run_audit(ticker, macro.brief, ctx)
+            # Ejecutar con el modo seleccionado
+            result = st.session_state.committee.run_audit(
+                ticker, 
+                macro.brief, 
+                ctx,
+                mode=mode_key  # <--- Pasamos el modo aquí
+            )
             
             st.session_state.debate_value = result.value_audit
             st.session_state.debate_growth = result.growth_audit
             st.session_state.debate_risk = result.risk_audit
             st.session_state.debate_raw = result.raw_debate
-            st.success("✅ Auditoría completada con Chain of Thought")
+            st.success(f"✅ Auditoría completada con perfil {modo_analisis}")
     
     if st.session_state.debate_raw:
         c1, c2, c3 = st.columns(3)
@@ -511,10 +621,10 @@ with tabs[5]:
             st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================================
-# TAB 7: VEREDICTO
+# TAB 8: VEREDICTO
 # ============================================================================
 
-with tabs[6]:
+with tabs[7]:
     st.header("⚖️ Veredicto Final")
     
     if not st.session_state.debate_raw:
@@ -592,10 +702,10 @@ with tabs[6]:
             st.markdown(st.session_state.renderer.get_pdf_download_link("", ticker), unsafe_allow_html=True)
 
 # ============================================================================
-# TAB 8: BIBLIOTECA
+# TAB 9: BIBLIOTECA
 # ============================================================================
 
-with tabs[7]:
+with tabs[8]:
     st.header("📚 Biblioteca de Sabiduría")
     st.caption("Sube libros de inversión para enriquecer el análisis de la IA")
     
@@ -658,10 +768,10 @@ with tabs[7]:
             st.info("No se encontraron resultados. Añade más libros.")
 
 # ============================================================================
-# TAB 9: MENTOR
+# TAB 10: MENTOR
 # ============================================================================
 
-with tabs[8]:
+with tabs[9]:
     st.header("👨🏫 Learning Oracle")
     
     st.subheader("💡 Preguntas Sugeridas")
@@ -698,10 +808,10 @@ with tabs[8]:
             )
 
 # ============================================================================
-# TAB 10: DOCS
+# TAB 11: DOCS
 # ============================================================================
 
-with tabs[9]:
+with tabs[10]:
     st.header("📂 Documentos 10-K/10-Q")
     
     c1, c2 = st.columns(2)
@@ -746,10 +856,10 @@ with tabs[9]:
         st.info("Sin historial de análisis")
 
 # ============================================================================
-# TAB 11: SEC FILINGS ANALYZER (FinRobot-inspired)
+# TAB 12: SEC FILINGS ANALYZER (FinRobot-inspired)
 # ============================================================================
 
-with tabs[10]:
+with tabs[11]:
     st.header("📄 SEC Filings Analyzer")
     st.caption("Análisis automático de 10-K, 10-Q y otros documentos SEC • Inspirado en FinRobot")
     

@@ -27,6 +27,7 @@ from .knowledge_library import (
 )
 from .report_renderer import HTMLReportRenderer
 from .sec_analyzer import SECAnalyzer, SECFiling, format_filing_date, get_filing_icon
+from .screener_service import ScreenerService
 
 __all__ = [
     # Core Services
@@ -60,4 +61,7 @@ __all__ = [
     'SECFiling',
     'format_filing_date',
     'get_filing_icon',
+    
+    # Screener (Discovery)
+    'ScreenerService',
 ]

@@ -1,6 +1,6 @@
 # 🚀 SINDICATO V8 ELITE+ - Plan de Mejoras v2
 ## Fecha: 2026-02-06
-## Estado: Pendiente de implementación
+## Estado: En progreso
 
 ---
 
@@ -9,6 +9,8 @@
 ### ✅ Funcionando Bien:
 - SEC Filings Analyzer (10-K/10-Q desde EDGAR)
 - Comité de Inversiones (CrewAI)
+- **Agente Alpha** (Small Caps con Skin in the Game) ✨ NUEVO
+- **Screener/Descubridor** (encuentra alternativas mejores) ✨ NUEVO
 - Veredicto Final con allocation
 - Biblioteca básica (3 libros de sabiduría)
 - Portfolio Optimizer (Markowitz)
