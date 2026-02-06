@@ -140,8 +140,9 @@ class SECAnalyzer:
         logger.info(f"CIK encontrado para {ticker}: {cik}")
         
         try:
-            # Obtener submissions
-            url = SEC_EDGAR_SUBMISSIONS.format(cik=cik.lstrip('0'))
+            # Obtener submissions - SEC API necesita CIK con 10 dígitos (con ceros)
+            # Pero a veces necesita sin ceros, probamos ambos formatos
+            url = SEC_EDGAR_SUBMISSIONS.format(cik=cik)  # Con ceros (10 dígitos)
             logger.info(f"Consultando SEC EDGAR: {url}")
             
             response = self._session.get(url, timeout=15)
