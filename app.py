@@ -266,14 +266,20 @@ ticker = ticker_selector(
 
 st.markdown("---")
 
-# Tabs reorganizados por categoría
+# Tabs (estructura temporal - pendiente reorganización UX)
 tabs = st.tabs([
-    "📊 ANÁLISIS",      # Datos + OpenBB + Gráficos
-    "🔍 DESCUBRIR",     # Screener + Comparar
-    "📄 DOCUMENTOS",    # Docs + SEC (fusionados)
-    "🦈 COMITÉ",        # Investment Committee + Veredicto
-    "⚖️ PORTFOLIO",     # Optimizer
-    "📚 BIBLIOTECA",    # Knowledge Library + Mentor
+    "📊 DATOS",
+    "🧠 OPENBB",
+    "🕵️ DESCUBRIR",
+    "📈 GRÁFICOS", 
+    "🔄 COMPARAR",
+    "⚖️ OPTIMIZER",
+    "🦈 COMITÉ",
+    "⚖️ VEREDICTO",
+    "📚 BIBLIOTECA",
+    "👨‍🏫 MENTOR",
+    "📂 DOCS",
+    "📄 SEC"
 ])
 
 # ============================================================================
