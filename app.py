@@ -283,28 +283,30 @@ tabs = st.tabs([
 ])
 
 # ============================================================================
-# TAB 0: DATOS - Vista General
+# TAB 0: DATOS - Vista General (Enhanced)
 # ============================================================================
 
 with tabs[0]:
-    st.header(f"📊 {ticker} - Vista Rápida")
+    st.header(f"📊 {ticker} - Overview")
     
+    # === ROW 1: Fundamentals + Sentiment ===
     col1, col2 = st.columns([1, 1])
     
     with col1:
         st.subheader("💹 Fundamentales")
         f = st.session_state.market_service.get_fundamentals(ticker)
         if f:
-            c1, c2 = st.columns(2)
+            c1, c2, c3, c4 = st.columns(4)
             c1.metric("Precio", f"${f.price:.2f}")
             c2.metric("Market Cap", f"${f.market_cap/1e9:.1f}B")
-            c1.metric("P/E", f"{f.pe_ratio:.1f}")
-            c2.metric("Forward P/E", f"{f.forward_pe:.1f}")
+            c3.metric("P/E", f"{f.pe_ratio:.1f}")
+            c4.metric("Forward P/E", f"{f.forward_pe:.1f}")
+            
+            c1, c2, c3, c4 = st.columns(4)
             c1.metric("ROE", f"{f.roe*100:.1f}%")
             c2.metric("Debt/Equity", f"{f.debt_to_equity:.1f}")
-            
-            st.write(f"**Valoración:** {f.valuation_score}")
-            st.write(f"**Calidad:** {f.quality_score}")
+            c3.write(f"**Valoración:** {f.valuation_score}")
+            c4.write(f"**Calidad:** {f.quality_score}")
         else:
             st.error("No se pudieron cargar datos")
     
@@ -313,14 +315,86 @@ with tabs[0]:
         sent = st.session_state.sentiment_analyzer.analyze(ticker)
         st.metric("Sentiment", f"{sent.overall_emoji} {sent.overall_sentiment}")
         
-        if sent.timeline_chart:
-            st.plotly_chart(sent.timeline_chart, use_container_width=True)
-        
         for n in sent.news_items[:3]:
-            st.markdown(
-                f"<div class='{n.css_class}'>{n.emoji} {n.title[:60]}...</div>", 
-                unsafe_allow_html=True
-            )
+            st.markdown(f"• {n.emoji} {n.title[:60]}...")
+    
+    st.markdown("---")
+    
+    # === ROW 2: Price Chart ===
+    st.subheader("📈 Price Chart")
+    chart_col1, chart_col2, chart_col3 = st.columns([2, 1, 1])
+    
+    with chart_col1:
+        chart_period = st.selectbox(
+            "Período", 
+            ["1mo", "3mo", "6mo", "1y", "2y"], 
+            index=3, 
+            key="overview_period"
+        )
+    
+    with chart_col2:
+        chart_type = st.selectbox(
+            "Tipo",
+            ["Candlestick", "Line", "Area"],
+            key="overview_chart_type"
+        )
+    
+    with chart_col3:
+        show_vol = st.checkbox("Volumen", value=True, key="overview_volume")
+    
+    # Usar el nuevo método create_price_chart
+    try:
+        chart = st.session_state.chart_service.create_price_chart(
+            ticker, 
+            period=chart_period,
+            chart_type=chart_type.lower(),
+            show_volume=show_vol
+        )
+        if chart:
+            st.plotly_chart(chart, use_container_width=True)
+        else:
+            st.info("Chart no disponible")
+    except Exception as e:
+        # Fallback a candlestick chart si falla
+        chart = st.session_state.chart_service.create_candlestick_chart(ticker, chart_period)
+        if chart:
+            st.plotly_chart(chart, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # === ROW 3: Financial Statements (Collapsible) ===
+    with st.expander("📊 Financial Statements", expanded=False):
+        fin_tabs = st.tabs(["Income Statement", "Balance Sheet", "Cash Flow"])
+        
+        with fin_tabs[0]:
+            try:
+                income_df = st.session_state.openbb.get_income_statement(ticker, period="annual", limit=3)
+                if income_df is not None and not income_df.empty:
+                    st.dataframe(income_df, use_container_width=True)
+                else:
+                    st.info("No income statement data available")
+            except Exception as e:
+                st.warning(f"Could not load: {e}")
+        
+        with fin_tabs[1]:
+            try:
+                balance_df = st.session_state.openbb.get_balance_sheet(ticker, period="annual", limit=3)
+                if balance_df is not None and not balance_df.empty:
+                    st.dataframe(balance_df, use_container_width=True)
+                else:
+                    st.info("No balance sheet data available")
+            except Exception as e:
+                st.warning(f"Could not load: {e}")
+        
+        with fin_tabs[2]:
+            try:
+                cashflow_df = st.session_state.openbb.get_cash_flow(ticker, period="annual", limit=3)
+                if cashflow_df is not None and not cashflow_df.empty:
+                    st.dataframe(cashflow_df, use_container_width=True)
+                else:
+                    st.info("No cash flow data available")
+            except Exception as e:
+                st.warning(f"Could not load: {e}")
 
 # ============================================================================
 # TAB 2: OPENBB DEEP DIVE
