@@ -252,7 +252,19 @@ with st.sidebar:
 # MAIN CONTENT
 # ============================================================================
 
-ticker = st.text_input("🎯 TICKER PARA ANALIZAR", "TSLA").upper()
+from components import ticker_selector
+
+st.header("🎯 Selecciona una Empresa")
+
+ticker = ticker_selector(
+    key="main_ticker",
+    default_ticker="TSLA",
+    label="Busca por nombre o ticker",
+    show_manual_input=True,
+    show_info=True
+)
+
+st.markdown("---")
 
 # Tabs
 tabs = st.tabs([
