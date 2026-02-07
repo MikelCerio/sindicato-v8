@@ -33,6 +33,9 @@ class VerdictResult:
 class InvestmentCommittee:
     """Comité de Inversiones Institucional con agentes especializados."""
     
+    # Temperatura para debates (más variación que informes)
+    DEBATE_TEMPERATURE = 0.2  # 0.1-0.3 permite creatividad controlada
+    
     def __init__(self):
         self._llm = None
     
@@ -41,7 +44,7 @@ class InvestmentCommittee:
         if self._llm is None:
             self._llm = ChatOpenAI(
                 model=MODELS.standard_model,
-                temperature=MODELS.temperature
+                temperature=self.DEBATE_TEMPERATURE  # Usar temp específica para debates
             )
         return self._llm
     

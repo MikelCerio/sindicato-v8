@@ -770,7 +770,7 @@ with tabs[8]:
     
     with col1:
         st.subheader("📤 Añadir Libro")
-        book_file = st.file_uploader("Subir libro (PDF, TXT)", type=['pdf', 'txt', 'md'])
+        book_file = st.file_uploader("Subir libro (PDF, EPUB, MOBI, TXT)", type=['pdf', 'txt', 'md', 'epub', 'mobi'])
         book_title = st.text_input("Título del libro", "")
         book_author = st.text_input("Autor", "")
         book_topics = st.text_input("Temas (comma sep)", "value investing, analysis")

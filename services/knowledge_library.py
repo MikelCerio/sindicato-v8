@@ -256,6 +256,10 @@ class KnowledgeLibrary:
             return self._extract_txt(file_path)
         elif ext in ['.html', '.htm']:
             return self._extract_html(file_path)
+        elif ext == '.epub':
+            return self._extract_epub(file_path)
+        elif ext == '.mobi':
+            return self._extract_mobi(file_path)
         else:
             return self._extract_txt(file_path)
     
@@ -304,6 +308,67 @@ class KnowledgeLibrary:
                 return soup.get_text(separator='\n', strip=True)
         except Exception as e:
             logger.error(f"Error extrayendo HTML: {e}")
+            return ""
+    
+    def _extract_epub(self, file_path: str) -> str:
+        """Extrae texto de EPUB."""
+        try:
+            from ebooklib import epub
+            from bs4 import BeautifulSoup
+            
+            book = epub.read_epub(file_path)
+            text_parts = []
+            
+            for item in book.get_items():
+                if item.get_type() == 9:  # ITEM_DOCUMENT (HTML content)
+                    content = item.get_content().decode('utf-8', errors='ignore')
+                    soup = BeautifulSoup(content, 'html.parser')
+                    text = soup.get_text(separator='\n', strip=True)
+                    if text:
+                        text_parts.append(text)
+            
+            logger.info(f"EPUB extraído: {len(text_parts)} secciones")
+            return "\n\n".join(text_parts)
+            
+        except ImportError:
+            logger.warning("ebooklib no instalado. Instala con: pip install ebooklib")
+            return ""
+        except Exception as e:
+            logger.error(f"Error extrayendo EPUB: {e}")
+            return ""
+    
+    def _extract_mobi(self, file_path: str) -> str:
+        """
+        Extrae texto de MOBI.
+        MOBI es más complejo - intenta convertir a EPUB primero o usar mobi-python.
+        """
+        try:
+            # Intento 1: Usar mobi-python si está disponible
+            try:
+                import mobi
+                tempdir, filepath = mobi.extract(file_path)
+                
+                # El archivo extraído suele ser HTML
+                for root, dirs, files in os.walk(tempdir):
+                    for f in files:
+                        if f.endswith('.html') or f.endswith('.htm'):
+                            html_path = os.path.join(root, f)
+                            return self._extract_html(html_path)
+                
+            except ImportError:
+                logger.warning("mobi no instalado. Usando fallback...")
+            
+            # Intento 2: Leer como binario y extraer texto visible
+            with open(file_path, 'rb') as f:
+                content = f.read()
+                # Buscar texto ASCII/UTF-8 en el binario
+                text = content.decode('utf-8', errors='ignore')
+                # Limpiar caracteres no imprimibles
+                clean_text = ''.join(c for c in text if c.isprintable() or c in '\n\r\t')
+                return clean_text
+                
+        except Exception as e:
+            logger.error(f"Error extrayendo MOBI: {e}")
             return ""
     
     def search(

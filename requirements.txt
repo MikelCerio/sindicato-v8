@@ -23,6 +23,8 @@ faiss-cpu>=1.7.4
 # === DOCUMENT PROCESSING ===
 pdfplumber>=0.10.0
 beautifulsoup4>=4.12.0
+ebooklib>=0.18  # EPUB support
+# mobi>=0.3.3  # MOBI support (optional, may have issues)
 
 # === NLP ===
 textblob>=0.17.1
