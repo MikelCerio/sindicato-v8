@@ -903,15 +903,65 @@ with tabs[5]:
 # TAB 6: COMITÉ
 # ============================================================================
 
-with tabs[6]:  # Actualizado de tabs[5] a tabs[6]
+with tabs[6]:  # COMITÉ
     st.header("🦈 Auditoría Institucional")
     st.caption(f"Macro: {macro.brief}")
     
-    # === SELECTOR DE MODO (NUEVO) ===
-    col_info, col_mode = st.columns([3, 1])
-    with col_info:
-        st.info("📚 Sube el Annual Report (PDF) en la pestaña DOCS para análisis completo")
-    with col_mode:
+    # === ESTADO DE DATOS ===
+    data_col1, data_col2 = st.columns([2, 1])
+    
+    with data_col1:
+        # Verificar si hay datos cargados
+        has_doc = st.session_state.oraculo.is_loaded
+        has_library = st.session_state.library.is_loaded
+        
+        if has_doc:
+            st.success(f"✅ Documento cargado: {st.session_state.get('active_doc_name', 'Documento')}")
+        else:
+            st.warning("⚠️ Sin documento cargado - El análisis usará solo datos públicos")
+            
+            # OPCIÓN 1: Cargar datos automáticamente
+            st.markdown("**💡 Opciones para mejorar el análisis:**")
+            
+            auto_col1, auto_col2 = st.columns(2)
+            
+            with auto_col1:
+                if st.button("📥 Auto-cargar datos financieros", use_container_width=True):
+                    with st.spinner(f"Cargando datos de {ticker}..."):
+                        try:
+                            # Obtener datos fundamentales
+                            fundamentals = st.session_state.market_service.get_fundamentals(ticker)
+                            income = st.session_state.openbb.get_income_statement(ticker, period="annual", limit=3)
+                            balance = st.session_state.openbb.get_balance_sheet(ticker, period="annual", limit=3)
+                            
+                            # Crear contexto artificial
+                            auto_context = f"""
+                            === DATOS FINANCIEROS DE {ticker} (Auto-cargados) ===
+                            
+                            FUNDAMENTALES:
+                            - Precio: ${fundamentals.price if fundamentals else 'N/A'}
+                            - Market Cap: ${fundamentals.market_cap/1e9 if fundamentals else 0:.1f}B
+                            - P/E: {fundamentals.pe_ratio if fundamentals else 'N/A'}
+                            - ROE: {fundamentals.roe*100 if fundamentals else 0:.1f}%
+                            - Debt/Equity: {fundamentals.debt_to_equity if fundamentals else 'N/A'}
+                            
+                            INCOME STATEMENT (últimos 3 años):
+                            {income.to_string() if income is not None else 'No disponible'}
+                            
+                            BALANCE SHEET:
+                            {balance.to_string() if balance is not None else 'No disponible'}
+                            """
+                            
+                            st.session_state['auto_financial_context'] = auto_context
+                            st.success("✅ Datos financieros cargados automáticamente")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error cargando datos: {e}")
+            
+            with auto_col2:
+                st.markdown("O sube un 10-K/10-Q en la pestaña **📂 DOCS**")
+    
+    with data_col2:
         modo_analisis = st.radio(
             "Perfil del Analista:",
             ["Institucional", "Alpha (Small Cap)"],
@@ -919,9 +969,14 @@ with tabs[6]:  # Actualizado de tabs[5] a tabs[6]
             help="Institucional: Análisis macro y preservación de capital. Alpha: Skin in the game y ROCE"
         )
     
+    # Verificar si hay datos auto-cargados
+    has_auto_context = 'auto_financial_context' in st.session_state and st.session_state['auto_financial_context']
+    
+    if has_auto_context:
+        st.success("✅ Datos financieros auto-cargados listos para análisis")
+    
     # Mapear la elección al código
     mode_key = "small_cap" if "Alpha" in modo_analisis else "standard"
-    # ================================
     
     # Enrich with library wisdom
     library_context = ""
@@ -929,12 +984,18 @@ with tabs[6]:  # Actualizado de tabs[5] a tabs[6]
         st.success("📚 La biblioteca de sabiduría enriquecerá el análisis")
         library_context = st.session_state.library.get_wisdom_for_topic("valuation")
     
-    if not st.session_state.oraculo.is_loaded:
-        st.warning("⚠️ Para Small Caps es CRÍTICO que subas el 10-K en DOCS")
+    if not st.session_state.oraculo.is_loaded and not has_auto_context:
+        st.info("💡 Puedes ejecutar el análisis con datos públicos, pero será más preciso con un 10-K")
     
     if st.button("🔥 AUDITAR", use_container_width=True, type="primary"):
         with st.spinner(f"Auditando con perfil {modo_analisis}... (60-90s)"):
-            ctx = st.session_state.oraculo.get_financial_context() if st.session_state.oraculo.is_loaded else {}
+            # Obtener contexto de datos
+            if st.session_state.oraculo.is_loaded:
+                ctx = st.session_state.oraculo.get_financial_context()
+            elif has_auto_context:
+                ctx = {'financial_data': st.session_state['auto_financial_context']}
+            else:
+                ctx = {}
             
             # Enrich context with library wisdom
             if library_context:
