@@ -187,7 +187,58 @@ class OraculoV8:
         
         return len(chunks), structure
     
-    def _extract_content(self, file_path: str) -> Tuple[str, str, DocumentStructure]:
+    def ingest_text(self, text: str, filename: str) -> int:
+        """
+        Ingesta texto crudo directamente (ej: desde SEC Analyzer).
+        
+        Args:
+            text: Texto a indexar
+            filename: Nombre del archivo virtual
+            
+        Returns:
+            Número de chunks indexados
+        """
+        logger.info(f"Procesando texto de SEC: {filename}")
+        
+        # Chunking
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=2000,
+            chunk_overlap=300,
+            separators=["\n\n", "\n", ". ", " ", ""]
+        )
+        chunks = splitter.split_text(text)
+        
+        # Crear documentos
+        docs = [
+            Document(
+                page_content=chunk,
+                metadata={
+                    'source': filename,
+                    'chunk_id': i,
+                    'total_chunks': len(chunks),
+                    'indexed_at': datetime.now().isoformat(),
+                    'type': 'sec_filing'
+                }
+            )
+            for i, chunk in enumerate(chunks)
+        ]
+        
+        # Crear/actualizar vectorstore
+        self._vectorstore = FAISS.from_documents(docs, self.embeddings)
+        self._vectorstore.save_local(PATHS.vectordb)
+        
+        # Limpiar caché
+        self._search_cache.clear()
+        
+        # Crear estructura dummy
+        self._current_structure = DocumentStructure(
+            filename=filename,
+            num_chunks=len(chunks)
+        )
+        
+        logger.info(f"Texto indexado: {len(chunks)} chunks")
+        
+        return len(chunks)
         """
         Extrae contenido de un archivo.
         

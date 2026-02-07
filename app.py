@@ -993,7 +993,13 @@ with tabs[6]:  # COMITÉ
             if st.session_state.oraculo.is_loaded:
                 ctx = st.session_state.oraculo.get_financial_context()
             elif has_auto_context:
-                ctx = {'financial_data': st.session_state['auto_financial_context']}
+                # Pasar los mismos datos a todos los agentes si no hay desglose específico
+                raw_data = st.session_state['auto_financial_context']
+                ctx = {
+                    'value': raw_data,
+                    'growth': raw_data,
+                    'risk': raw_data
+                }
             else:
                 ctx = {}
             
@@ -1076,46 +1082,41 @@ with tabs[7]:
             
             # === EXPORT SECTION ===
             st.markdown("---")
-            st.subheader("🖨️ Exportar Reporte")
+            st.subheader("🖨️ Exportar Reporte Institucional")
             
-            col_pdf, col_html = st.columns(2)
+            # HTML Report (FinRobot Style) - ÚNICA OPCIÓN DE CALIDAD
+            f = st.session_state.market_service.get_fundamentals(ticker)
+            sent = st.session_state.sentiment_analyzer.analyze(ticker)
             
-            with col_pdf:
-                # PDF Download
-                pdf = st.session_state.pdf_generator.create_investment_memo(
-                    ticker, st.session_state.veredicto_final, st.session_state.allocation_final,
-                    macro.brief, st.session_state.debate_value, st.session_state.debate_growth,
-                    st.session_state.debate_risk
+            if f:
+                html_report = st.session_state.renderer.render(
+                    ticker=ticker,
+                    price=f.price,
+                    veredicto=st.session_state.veredicto_final,
+                    debate=st.session_state.debate_raw,
+                    fundamentals=f.__dict__,
+                    sentiment=sent.overall_sentiment,
+                    value_audit=st.session_state.debate_value,
+                    growth_audit=st.session_state.debate_growth,
+                    risk_audit=st.session_state.debate_risk,
+                    macro_context=macro.brief,
+                    allocation=st.session_state.allocation_final
                 )
-                st.download_button("📄 Descargar PDF", pdf, f"Memo_{ticker}.pdf", "application/pdf", use_container_width=True)
-            
-            with col_html:
-                # HTML Report (FinRobot Style)
-                f = st.session_state.market_service.get_fundamentals(ticker)
-                sent = st.session_state.sentiment_analyzer.analyze(ticker)
                 
-                if f:
-                    html_report = st.session_state.renderer.render(
-                        ticker=ticker,
-                        price=f.price,
-                        veredicto=st.session_state.veredicto_final,
-                        debate=st.session_state.debate_raw,
-                        fundamentals=f.__dict__,
-                        sentiment=sent.overall_sentiment,
-                        value_audit=st.session_state.debate_value,
-                        growth_audit=st.session_state.debate_growth,
-                        risk_audit=st.session_state.debate_risk,
-                        macro_context=macro.brief,
-                        allocation=st.session_state.allocation_final
-                    )
-                    
-                    st.markdown(
-                        st.session_state.renderer.get_download_link(html_report, f"{ticker}_Research_Report"),
+                col_dl, col_info = st.columns([1, 2])
+                
+                with col_dl:
+                     st.markdown(
+                        st.session_state.renderer.get_download_link(html_report, f"{ticker}_Investment_Memo"),
                         unsafe_allow_html=True
                     )
+                
+                with col_info:
+                    st.info("💡 **Para obtener el mejor PDF:** Descarga el HTML, ábrelo en tu navegador y usa `Ctrl+P` (Imprimir) > Guardar como PDF.")
             
-            # Tip for PDF
-            st.markdown(st.session_state.renderer.get_pdf_download_link("", ticker), unsafe_allow_html=True)
+            # Preview (opcional)
+            with st.expander("👁️ Previsualizar Reporte"):
+                st.components.v1.html(html_report, height=600, scrolling=True)
 
 # ============================================================================
 # TAB 9: BIBLIOTECA
@@ -1423,18 +1424,36 @@ with tabs[11]:
                 with st.spinner("Indexando filing..."):
                     # Crear contenido para indexar
                     content = f"""
-                    {analyzed.form_type} - {analyzed.ticker} ({analyzed.filing_date})
+                    TIPO: {analyzed.form_type}
+                    TICKER: {analyzed.ticker}
+                    FECHA: {analyzed.filing_date}
                     
-                    RESUMEN: {analyzed.executive_summary}
+                    RESUMEN EJECUTIVO: 
+                    {analyzed.executive_summary}
                     
-                    BUSINESS: {analyzed.business_description[:3000] if analyzed.business_description else ''}
+                    RED FLAGS:
+                    {str(analyzed.red_flags)}
                     
-                    RISKS: {analyzed.risk_factors[:3000] if analyzed.risk_factors else ''}
+                    BUSINESS DESCRIPTION: 
+                    {analyzed.business_description[:10000] if analyzed.business_description else ''}
                     
-                    MD&A: {analyzed.md_and_a[:3000] if analyzed.md_and_a else ''}
+                    RISK FACTORS: 
+                    {analyzed.risk_factors[:10000] if analyzed.risk_factors else ''}
+                    
+                    MD&A: 
+                    {analyzed.md_and_a[:10000] if analyzed.md_and_a else ''}
+                    
+                    FINANCIAL MENTIONS:
+                    {analyzed.metrics.get('full_analysis', '')}
                     """
-                    # Aquí se podría añadir al OraculoV8
-                    st.success(f"✅ Filing indexado. Ahora puedes hacer preguntas sobre este documento.")
+                    
+                    # Usar el nuevo método ingest_text
+                    n_chunks = st.session_state.oraculo.ingest_text(
+                        content, 
+                        filename=f"{analyzed.ticker}_{analyzed.form_type}_{analyzed.filing_date}.txt"
+                    )
+                    
+                    st.success(f"✅ Documento indexado ({n_chunks} chunks). Ahora el Comité y el Oracle tienen acceso a este conocimiento.")
     
     else:
         # Instrucciones iniciales

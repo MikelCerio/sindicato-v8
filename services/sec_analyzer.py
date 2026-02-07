@@ -264,38 +264,62 @@ class SECAnalyzer:
         
         text = soup.get_text(separator='\n', strip=True)
         
-        # Patrones para secciones de 10-K
+        # Patrones para secciones de 10-K (más robustos)
         section_patterns = {
             'business_description': [
-                r'ITEM\s*1[.\s]*BUSINESS(.*?)ITEM\s*1A',
-                r'Item\s*1[.\s]*Business(.*?)Item\s*1A',
+                # Patrones estándar
+                r'ITEM\s+1\.?\s+BUSINESS',  # Header inicio
+                r'Item\s+1\.?\s+Business',
+                r'PART\s+I.*?ITEM\s+1',      # Con Part I
             ],
             'risk_factors': [
-                r'ITEM\s*1A[.\s]*RISK\s*FACTORS?(.*?)ITEM\s*1B',
-                r'Item\s*1A[.\s]*Risk\s*Factors?(.*?)Item\s*1B',
-                r'ITEM\s*1A[.\s]*RISK\s*FACTORS?(.*?)ITEM\s*2',
+                r'ITEM\s+1A\.?\s+RISK\s+FACTORS',
+                r'Item\s+1A\.?\s+Risk\s+Factors',
             ],
             'md_and_a': [
-                r'ITEM\s*7[.\s]*MANAGEMENT.{0,50}DISCUSSION(.*?)ITEM\s*7A',
-                r'Item\s*7[.\s]*Management.{0,50}Discussion(.*?)Item\s*7A',
-                r'ITEM\s*7[.\s]*MANAGEMENT.{0,50}DISCUSSION(.*?)ITEM\s*8',
+                r'ITEM\s+7\.?\s+MANAGEMENT',
+                r'Item\s+7\.?\s+Management',
             ],
             'financial_statements': [
-                r'ITEM\s*8[.\s]*FINANCIAL\s*STATEMENTS(.*?)ITEM\s*9',
-                r'Item\s*8[.\s]*Financial\s*Statements(.*?)Item\s*9',
+                r'ITEM\s+8\.?\s+FINANCIAL',
+                r'Item\s+8\.?\s+Financial',
             ]
         }
         
-        for section_name, patterns in section_patterns.items():
+        # Estrategia de búsqueda mejorada: Buscar índices de inicio de cada sección
+        text_upper = text.upper()
+        
+        # Mapeo de posiciones
+        indices = {}
+        for section, patterns in section_patterns.items():
             for pattern in patterns:
-                match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+                # Buscar el patrón compilado para velocidad y robustez
+                match = re.search(pattern, text, re.IGNORECASE)
                 if match:
-                    content = match.group(1).strip()
-                    # Limitar tamaño para LLM
-                    if len(content) > 50000:
-                        content = content[:50000] + "...[truncated]"
-                    setattr(filing, section_name, content)
+                    indices[section] = match.start()
                     break
+        
+        # Ordenar secciones encontradas por posición
+        sorted_sections = sorted([(k, v) for k, v in indices.items()], key=lambda x: x[1])
+        
+        # Extraer contenido entre secciones
+        for i, (section, start_idx) in enumerate(sorted_sections):
+            # El final es el inicio de la siguiente sección o el final del texto
+            end_idx = sorted_sections[i+1][1] if i < len(sorted_sections)-1 else len(text)
+            
+            # Extraer y limpiar
+            content = text[start_idx:end_idx].strip()
+            
+            # Limitar tamaño
+            if len(content) > 60000:
+                content = content[:60000] + "... [truncated]"
+            
+            setattr(filing, section, content)
+            
+        # Fallback: Si no se encontró nada, usar todo el texto para resumen, 
+        # pero marcar las secciones como "No encontradas automáticamente"
+        if not sorted_sections:
+            logger.warning("No se pudieron detectar secciones en el 10-K. Usando extracción general.")
     
     def _extract_text_clean(self, html: str, max_length: int = 50000) -> str:
         """Extrae texto limpio del HTML."""
