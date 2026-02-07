@@ -155,27 +155,36 @@ def render_financial_statements_collapsible(ticker: str, openbb_service):
         
         with fin_tabs[0]:
             st.caption("Income Statement (Annual)")
-            income = openbb_service.get_income_statement(ticker, period="annual", limit=3)
-            if income is not None and not income.empty:
-                st.dataframe(income, use_container_width=True)
-            else:
-                st.info("No data available")
+            try:
+                income = openbb_service.get_income_statement(ticker, period="annual", limit=3)
+                if income is not None and not income.empty:
+                    st.dataframe(income, use_container_width=True)
+                else:
+                    st.info("No data available")
+            except Exception as e:
+                st.warning(f"Could not load income statement: {str(e)}")
         
         with fin_tabs[1]:
             st.caption("Balance Sheet (Annual)")
-            balance = openbb_service.get_balance_sheet(ticker, period="annual", limit=3)
-            if balance is not None and not balance.empty:
-                st.dataframe(balance, use_container_width=True)
-            else:
-                st.info("No data available")
+            try:
+                balance = openbb_service.get_balance_sheet(ticker, period="annual", limit=3)
+                if balance is not None and not balance.empty:
+                    st.dataframe(balance, use_container_width=True)
+                else:
+                    st.info("No data available")
+            except Exception as e:
+                st.warning(f"Could not load balance sheet: {str(e)}")
         
         with fin_tabs[2]:
             st.caption("Cash Flow (Annual)")
-            cashflow = openbb_service.get_cash_flow(ticker, period="annual", limit=3)
-            if cashflow is not None and not cashflow.empty:
-                st.dataframe(cashflow, use_container_width=True)
-            else:
-                st.info("No data available")
+            try:
+                cashflow = openbb_service.get_cash_flow(ticker, period="annual", limit=3)
+                if cashflow is not None and not cashflow.empty:
+                    st.dataframe(cashflow, use_container_width=True)
+                else:
+                    st.info("No data available")
+            except Exception as e:
+                st.warning(f"Could not load cash flow: {str(e)}")
 
 
 def render_price_chart(ticker: str, chart_service):
