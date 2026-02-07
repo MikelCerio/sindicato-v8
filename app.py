@@ -283,44 +283,71 @@ tabs = st.tabs([
 ])
 
 # ============================================================================
-# TAB 1: DATOS BÁSICOS
+# TAB 0: OVERVIEW - DASHBOARD UNIFICADO (Estilo Bloomberg Terminal)
 # ============================================================================
 
 with tabs[0]:
-    st.header(f"📊 {ticker} - Vista Rápida")
+    from components import (
+        render_ticker_header,
+        render_key_metrics_compact,
+        render_sentiment_news_card,
+        render_financial_statements_collapsible,
+        render_price_chart,
+        render_quick_actions
+    )
     
-    col1, col2 = st.columns([1, 1])
+    # === 1. TICKER HEADER ===
+    # Obtener datos fundamentales
+    f = st.session_state.market_service.get_fundamentals(ticker)
     
-    with col1:
-        st.subheader("💹 Fundamentales")
-        f = st.session_state.market_service.get_fundamentals(ticker)
-        if f:
-            c1, c2 = st.columns(2)
-            c1.metric("Precio", f"${f.price:.2f}")
-            c2.metric("Market Cap", f"${f.market_cap/1e9:.1f}B")
-            c1.metric("P/E", f"{f.pe_ratio:.1f}")
-            c2.metric("Forward P/E", f"{f.forward_pe:.1f}")
-            c1.metric("ROE", f"{f.roe*100:.1f}%")
-            c2.metric("Debt/Equity", f"{f.debt_to_equity:.1f}")
-            
-            st.write(f"**Valoración:** {f.valuation_score}")
-            st.write(f"**Calidad:** {f.quality_score}")
-        else:
-            st.error("No se pudieron cargar datos")
-    
-    with col2:
-        st.subheader("📰 Sentiment")
+    if f:
+        # Calcular cambio porcentual (simulado - en producción vendría de API)
+        change_pct = 2.3  # TODO: Obtener de API en tiempo real
+        
+        render_ticker_header(
+            ticker=ticker,
+            company_name=f.company_name if hasattr(f, 'company_name') else f"Company {ticker}",
+            price=f.price,
+            change_pct=change_pct,
+            market_cap=f.market_cap
+        )
+        
+        # === 2. KEY METRICS ===
+        metrics = {
+            'pe_ratio': f.pe_ratio,
+            'forward_pe': f.forward_pe,
+            'roe': f.roe,
+            'debt_to_equity': f.debt_to_equity,
+            'eps': getattr(f, 'eps', None),
+            'revenue_growth': getattr(f, 'revenue_growth', None),
+            'profit_margin': getattr(f, 'profit_margin', None),
+            'beta': getattr(f, 'beta', None),
+        }
+        
+        render_key_metrics_compact(metrics)
+        
+        st.markdown("---")
+        
+        # === 3. SENTIMENT & NEWS ===
         sent = st.session_state.sentiment_analyzer.analyze(ticker)
-        st.metric("Sentiment", f"{sent.overall_emoji} {sent.overall_sentiment}")
+        render_sentiment_news_card(sent)
         
-        if sent.timeline_chart:
-            st.plotly_chart(sent.timeline_chart, use_container_width=True)
+        st.markdown("---")
         
-        for n in sent.news_items[:3]:
-            st.markdown(
-                f"<div class='{n.css_class}'>{n.emoji} {n.title[:60]}...</div>", 
-                unsafe_allow_html=True
-            )
+        # === 4. FINANCIAL STATEMENTS (Colapsable) ===
+        render_financial_statements_collapsible(ticker, st.session_state.openbb_service)
+        
+        st.markdown("---")
+        
+        # === 5. PRICE CHART ===
+        render_price_chart(ticker, st.session_state.chart_service)
+        
+        # === 6. QUICK ACTIONS ===
+        render_quick_actions(ticker)
+        
+    else:
+        st.error(f"❌ No se pudieron cargar datos para {ticker}")
+        st.info("💡 Verifica que el ticker sea correcto y que tengas conexión a internet.")
 
 # ============================================================================
 # TAB 2: OPENBB DEEP DIVE
