@@ -82,6 +82,121 @@ class PriceChartService:
         
         return fig
     
+    def create_price_chart(
+        self, 
+        ticker: str, 
+        period: str = "1y", 
+        chart_type: str = "candlestick",
+        show_volume: bool = True
+    ) -> Optional[go.Figure]:
+        """
+        Crea gráfico de precio flexible con múltiples tipos.
+        
+        Args:
+            ticker: Símbolo del ticker
+            period: Período de tiempo (1mo, 3mo, 6mo, 1y, 2y, 5y)
+            chart_type: Tipo de gráfico (candlestick, line, area)
+            show_volume: Mostrar volumen en subplot
+            
+        Returns:
+            Plotly Figure o None si no hay datos
+        """
+        hist = self.market_service.get_price_history(ticker, period)
+        
+        if hist is None or hist.empty:
+            return None
+        
+        # Configurar subplots según si mostramos volumen
+        if show_volume:
+            fig = make_subplots(
+                rows=2, cols=1,
+                shared_xaxes=True,
+                vertical_spacing=0.03,
+                row_heights=[0.75, 0.25],
+                subplot_titles=[f'{ticker} - Precio', 'Volumen']
+            )
+        else:
+            fig = go.Figure()
+        
+        # Añadir gráfico principal según tipo
+        if chart_type.lower() == "candlestick":
+            trace = go.Candlestick(
+                x=hist.index,
+                open=hist['Open'],
+                high=hist['High'],
+                low=hist['Low'],
+                close=hist['Close'],
+                name='Precio',
+                increasing_line_color='#00ff88',
+                decreasing_line_color='#ff4444'
+            )
+        elif chart_type.lower() == "area":
+            trace = go.Scatter(
+                x=hist.index,
+                y=hist['Close'],
+                mode='lines',
+                fill='tozeroy',
+                fillcolor='rgba(0, 255, 136, 0.1)',
+                line=dict(color='#00ff88', width=2),
+                name='Precio'
+            )
+        else:  # line
+            trace = go.Scatter(
+                x=hist.index,
+                y=hist['Close'],
+                mode='lines',
+                line=dict(color='#00ff88', width=2),
+                name='Precio'
+            )
+        
+        if show_volume:
+            fig.add_trace(trace, row=1, col=1)
+            
+            # Añadir medias móviles
+            if len(hist) > 20:
+                hist['MA20'] = hist['Close'].rolling(20).mean()
+                fig.add_trace(go.Scatter(
+                    x=hist.index, y=hist['MA20'],
+                    name='MA20', line=dict(color='#ffaa00', width=1)
+                ), row=1, col=1)
+            
+            if len(hist) > 50:
+                hist['MA50'] = hist['Close'].rolling(50).mean()
+                fig.add_trace(go.Scatter(
+                    x=hist.index, y=hist['MA50'],
+                    name='MA50', line=dict(color='#00aaff', width=1)
+                ), row=1, col=1)
+            
+            # Volumen con colores
+            colors = ['#00ff88' if hist['Close'].iloc[i] >= hist['Open'].iloc[i] else '#ff4444' 
+                      for i in range(len(hist))]
+            fig.add_trace(go.Bar(
+                x=hist.index, y=hist['Volume'],
+                name='Volumen', marker_color=colors, opacity=0.7
+            ), row=2, col=1)
+        else:
+            fig.add_trace(trace)
+            
+            # Medias móviles sin subplots
+            if len(hist) > 20:
+                hist['MA20'] = hist['Close'].rolling(20).mean()
+                fig.add_trace(go.Scatter(
+                    x=hist.index, y=hist['MA20'],
+                    name='MA20', line=dict(color='#ffaa00', width=1)
+                ))
+        
+        fig.update_layout(
+            template='plotly_dark',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(10,10,10,0.8)',
+            height=500 if show_volume else 400,
+            xaxis_rangeslider_visible=False,
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02)
+        )
+        
+        return fig
+    
     def create_performance_chart(self, ticker: str, period: str = "1y") -> Optional[go.Figure]:
         """Crea gráfico de rendimiento normalizado."""
         hist = self.market_service.get_price_history(ticker, period)

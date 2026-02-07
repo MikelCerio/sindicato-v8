@@ -220,6 +220,101 @@ class OpenBBService:
             logger.error(f"Error yfinance fallback: {e}")
             return None
     
+    # -------------------------------------------------------------------------
+    # Individual Financial Statement Methods (for dashboard components)
+    # -------------------------------------------------------------------------
+    
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def get_income_statement(_self, ticker: str, period: str = "annual", limit: int = 5) -> Optional[pd.DataFrame]:
+        """
+        Obtiene Income Statement individual.
+        
+        Args:
+            ticker: Símbolo del ticker
+            period: 'annual' o 'quarterly'
+            limit: Número de períodos
+            
+        Returns:
+            DataFrame con income statement o None
+        """
+        try:
+            import yfinance as yf
+            stock = yf.Ticker(ticker)
+            
+            if period == "quarterly":
+                df = stock.quarterly_income_stmt
+            else:
+                df = stock.income_stmt
+            
+            if df is not None and not df.empty:
+                # Limitar columnas y transponer para mejor visualización
+                df = df.iloc[:, :limit]
+                return df.T
+            return None
+        except Exception as e:
+            logger.error(f"Error getting income statement: {e}")
+            return None
+    
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def get_balance_sheet(_self, ticker: str, period: str = "annual", limit: int = 5) -> Optional[pd.DataFrame]:
+        """
+        Obtiene Balance Sheet individual.
+        
+        Args:
+            ticker: Símbolo del ticker
+            period: 'annual' o 'quarterly'
+            limit: Número de períodos
+            
+        Returns:
+            DataFrame con balance sheet o None
+        """
+        try:
+            import yfinance as yf
+            stock = yf.Ticker(ticker)
+            
+            if period == "quarterly":
+                df = stock.quarterly_balance_sheet
+            else:
+                df = stock.balance_sheet
+            
+            if df is not None and not df.empty:
+                df = df.iloc[:, :limit]
+                return df.T
+            return None
+        except Exception as e:
+            logger.error(f"Error getting balance sheet: {e}")
+            return None
+    
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def get_cash_flow(_self, ticker: str, period: str = "annual", limit: int = 5) -> Optional[pd.DataFrame]:
+        """
+        Obtiene Cash Flow Statement individual.
+        
+        Args:
+            ticker: Símbolo del ticker
+            period: 'annual' o 'quarterly'
+            limit: Número de períodos
+            
+        Returns:
+            DataFrame con cash flow o None
+        """
+        try:
+            import yfinance as yf
+            stock = yf.Ticker(ticker)
+            
+            if period == "quarterly":
+                df = stock.quarterly_cashflow
+            else:
+                df = stock.cashflow
+            
+            if df is not None and not df.empty:
+                df = df.iloc[:, :limit]
+                return df.T
+            return None
+        except Exception as e:
+            logger.error(f"Error getting cash flow: {e}")
+            return None
+    
     # =========================================================================
     # KEY METRICS & RATIOS
     # =========================================================================
