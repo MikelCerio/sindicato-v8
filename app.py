@@ -363,14 +363,40 @@ with tabs[0]:
     st.markdown("---")
     
     # === ROW 3: Financial Statements (Collapsible) ===
-    with st.expander("📊 Financial Statements", expanded=False):
-        fin_tabs = st.tabs(["Income Statement", "Balance Sheet", "Cash Flow"])
+    with st.expander("📊 Estados Financieros (en millones USD)", expanded=False):
+        
+        # Helper function para formatear números grandes
+        def format_financial_df(df):
+            """Convierte números a millones y formatea para legibilidad."""
+            if df is None or df.empty:
+                return df
+            
+            formatted_df = df.copy()
+            
+            # Formatear cada columna
+            for col in formatted_df.columns:
+                if formatted_df[col].dtype in ['float64', 'int64', 'float32', 'int32']:
+                    # Convertir a millones y formatear
+                    formatted_df[col] = formatted_df[col].apply(
+                        lambda x: f"${x/1_000_000:,.0f}M" if pd.notna(x) and abs(x) >= 1_000_000 
+                        else (f"${x:,.0f}" if pd.notna(x) else "N/A")
+                    )
+            
+            # Formatear nombres de columnas (fechas)
+            formatted_df.columns = [str(c).split(' ')[0] if ' ' in str(c) else str(c) for c in formatted_df.columns]
+            
+            return formatted_df
+        
+        st.caption("💡 Valores en millones USD (M = millones)")
+        
+        fin_tabs = st.tabs(["📈 Income Statement", "📊 Balance Sheet", "💰 Cash Flow"])
         
         with fin_tabs[0]:
             try:
                 income_df = st.session_state.openbb.get_income_statement(ticker, period="annual", limit=3)
                 if income_df is not None and not income_df.empty:
-                    st.dataframe(income_df, use_container_width=True)
+                    formatted_income = format_financial_df(income_df)
+                    st.dataframe(formatted_income, use_container_width=True, height=400)
                 else:
                     st.info("No income statement data available")
             except Exception as e:
@@ -380,7 +406,8 @@ with tabs[0]:
             try:
                 balance_df = st.session_state.openbb.get_balance_sheet(ticker, period="annual", limit=3)
                 if balance_df is not None and not balance_df.empty:
-                    st.dataframe(balance_df, use_container_width=True)
+                    formatted_balance = format_financial_df(balance_df)
+                    st.dataframe(formatted_balance, use_container_width=True, height=400)
                 else:
                     st.info("No balance sheet data available")
             except Exception as e:
@@ -390,7 +417,8 @@ with tabs[0]:
             try:
                 cashflow_df = st.session_state.openbb.get_cash_flow(ticker, period="annual", limit=3)
                 if cashflow_df is not None and not cashflow_df.empty:
-                    st.dataframe(cashflow_df, use_container_width=True)
+                    formatted_cashflow = format_financial_df(cashflow_df)
+                    st.dataframe(formatted_cashflow, use_container_width=True, height=400)
                 else:
                     st.info("No cash flow data available")
             except Exception as e:
