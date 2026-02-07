@@ -335,7 +335,7 @@ with tabs[0]:
         st.markdown("---")
         
         # === 4. FINANCIAL STATEMENTS (Colapsable) ===
-        render_financial_statements_collapsible(ticker, st.session_state.openbb_service)
+        render_financial_statements_collapsible(ticker, st.session_state.openbb)
         
         st.markdown("---")
         
