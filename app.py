@@ -266,77 +266,96 @@ ticker = ticker_selector(
 
 st.markdown("---")
 
-# Nueva estructura: 6 tabs principales
+# Tabs (estructura temporal - pendiente reorganización UX)
 tabs = st.tabs([
-    "📊 OVERVIEW",      # Datos + Sentiment
-    "📈 FINANCIALS",    # OpenBB + Gráficos
-    "🔍 DISCOVER",      # Screener + Comparar
-    "🦈 AI ANALYSIS",   # Comité + Veredicto + Mentor
-    "⚖️ PORTFOLIO",     # Optimizer
-    "📄 RESOURCES"      # Biblioteca + Docs + SEC
+    "📊 DATOS",
+    "🧠 OPENBB",
+    "🕵️ DESCUBRIR",
+    "📈 GRÁFICOS", 
+    "🔄 COMPARAR",
+    "⚖️ OPTIMIZER",
+    "🦈 COMITÉ",
+    "⚖️ VEREDICTO",
+    "📚 BIBLIOTECA",
+    "👨‍🏫 MENTOR",
+    "📂 DOCS",
+    "📄 SEC"
 ])
 
 # ============================================================================
-# TAB 0: OVERVIEW - Datos + Sentiment
+# TAB 0: OVERVIEW - DASHBOARD UNIFICADO (Estilo Bloomberg Terminal)
 # ============================================================================
 
 with tabs[0]:
-    st.header(f"📊 {ticker} - Overview")
+    from components import (
+        render_ticker_header,
+        render_key_metrics_compact,
+        render_sentiment_news_card,
+        render_financial_statements_collapsible,
+        render_price_chart,
+        render_quick_actions
+    )
     
-    # Subtabs para organizar mejor
-    overview_tabs = st.tabs(["💹 Fundamentals", "📰 Sentiment", "📈 Quick Chart"])
+    # === 1. TICKER HEADER ===
+    # Obtener datos fundamentales
+    f = st.session_state.market_service.get_fundamentals(ticker)
     
-    with overview_tabs[0]:
-        f = st.session_state.market_service.get_fundamentals(ticker)
-        if f:
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Precio", f"${f.price:.2f}")
-            col2.metric("Market Cap", f"${f.market_cap/1e9:.1f}B")
-            col3.metric("P/E", f"{f.pe_ratio:.1f}")
-            col4.metric("Forward P/E", f"{f.forward_pe:.1f}")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("ROE", f"{f.roe*100:.1f}%")
-            col2.metric("Debt/Equity", f"{f.debt_to_equity:.1f}")
-            col3.write(f"**Valoración:** {f.valuation_score}")
-            col4.write(f"**Calidad:** {f.quality_score}")
-        else:
-            st.error("No se pudieron cargar datos")
-    
-    with overview_tabs[1]:
-        sent = st.session_state.sentiment_analyzer.analyze(ticker)
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            st.metric("Sentiment", f"{sent.overall_emoji} {sent.overall_sentiment}")
-        with col2:
-            if sent.timeline_chart:
-                st.plotly_chart(sent.timeline_chart, use_container_width=True)
+    if f:
+        # Calcular cambio porcentual (simulado - en producción vendría de API)
+        change_pct = 2.3  # TODO: Obtener de API en tiempo real
         
-        st.subheader("📰 Latest News")
-        for n in sent.news_items[:5]:
-            st.markdown(f"{n.emoji} {n.title}")
-    
-    with overview_tabs[2]:
-        # Quick chart using chart_service if available
-        try:
-            candle = st.session_state.chart_service.create_candlestick_chart(ticker, "6mo")
-            if candle:
-                st.plotly_chart(candle, use_container_width=True)
-        except:
-            st.info("Gráfico disponible en tab FINANCIALS")
+        render_ticker_header(
+            ticker=ticker,
+            company_name=f.company_name if hasattr(f, 'company_name') else f"Company {ticker}",
+            price=f.price,
+            change_pct=change_pct,
+            market_cap=f.market_cap
+        )
+        
+        # === 2. KEY METRICS ===
+        metrics = {
+            'pe_ratio': f.pe_ratio,
+            'forward_pe': f.forward_pe,
+            'roe': f.roe,
+            'debt_to_equity': f.debt_to_equity,
+            'eps': getattr(f, 'eps', None),
+            'revenue_growth': getattr(f, 'revenue_growth', None),
+            'profit_margin': getattr(f, 'profit_margin', None),
+            'beta': getattr(f, 'beta', None),
+        }
+        
+        render_key_metrics_compact(metrics)
+        
+        st.markdown("---")
+        
+        # === 3. SENTIMENT & NEWS ===
+        sent = st.session_state.sentiment_analyzer.analyze(ticker)
+        render_sentiment_news_card(sent)
+        
+        st.markdown("---")
+        
+        # === 4. FINANCIAL STATEMENTS (Colapsable) ===
+        render_financial_statements_collapsible(ticker, st.session_state.openbb)
+        
+        st.markdown("---")
+        
+        # === 5. PRICE CHART ===
+        render_price_chart(ticker, st.session_state.chart_service)
+        
+        # === 6. QUICK ACTIONS ===
+        render_quick_actions(ticker)
+        
+    else:
+        st.error(f"❌ No se pudieron cargar datos para {ticker}")
+        st.info("💡 Verifica que el ticker sea correcto y que tengas conexión a internet.")
 
 # ============================================================================
-# TAB 1: FINANCIALS - OpenBB + Gráficos
+# TAB 2: OPENBB DEEP DIVE
 # ============================================================================
 
 with tabs[1]:
-    st.header(f"📈 {ticker} - Financials & Charts")
-    
-    # Subtabs: OpenBB Data + Charts
-    fin_tabs = st.tabs(["🧠 OpenBB Data", "📈 Charts", "📊 Comparar"])
-    
-    with fin_tabs[0]:
-        st.caption("Datos profesionales via OpenBB Platform")
+    st.header(f"🧠 {ticker} - Deep Dive Institucional")
+    st.caption("Datos profesionales via OpenBB Platform")
     
     col1, col2 = st.columns([2, 1])
     
@@ -426,45 +445,15 @@ with tabs[1]:
             st.write(f"**Country:** {profile.get('country', 'N/A')}")
 
 # ============================================================================
-    # Subtab Charts (dentro de FINANCIALS)
-    with fin_tabs[1]:
-        st.subheader(f"📈 {ticker} - Gráficos")
-        
-        period = st.selectbox("Período", ["1mo", "3mo", "6mo", "1y", "2y"], index=3, key="fin_period")
-        
-        try:
-            candle = st.session_state.chart_service.create_candlestick_chart(ticker, period)
-            if candle:
-                st.plotly_chart(candle, use_container_width=True)
-            
-            perf = st.session_state.chart_service.create_performance_chart(ticker, period)
-            if perf:
-                st.plotly_chart(perf, use_container_width=True)
-        except Exception as e:
-            st.warning(f"Charts no disponibles: {e}")
-    
-    # Subtab Comparar (dentro de FINANCIALS)
-    with fin_tabs[2]:
-        st.subheader("🔄 Comparativa de Tickers")
-        
-        tickers_input = st.text_input("Tickers (separados por coma)", "AAPL, MSFT, GOOGL, TSLA", key="compare_input")
-        tickers_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
-        
-        if len(tickers_list) >= 2 and st.button("🔍 Comparar Fundamentales", key="compare_btn"):
-            with st.spinner("Comparando..."):
-                try:
-                    result = st.session_state.comparator.compare(tickers_list)
-                    if result:
-                        st.dataframe(result, use_container_width=True)
-                except Exception as e:
-                    st.error(f"Error comparando: {e}")
+# TAB 3: GRÁFICOS
+# ============================================================================
 
 # ============================================================================
-# TAB 2: DISCOVER - Screener
+# TAB 3: DESCUBRIR (SCREENER)
 # ============================================================================
 
 with tabs[2]:
-    st.header(f"🔍 Discover - Radar de Oportunidades")
+    st.header(f"🕵️ Radar de Oportunidades: Sector {ticker}")
     
     st.info("""
     **¿Cómo funciona?**
@@ -539,24 +528,84 @@ with tabs[2]:
         else:
             st.warning("No se encontraron datos suficientes de competidores.")
 
-# tabs[3] y tabs[4] (GRÁFICOS y COMPARAR) ya están fusionados en fin_tabs dentro de tab 1
-
 # ============================================================================
-# TAB 3: AI ANALYSIS - Comité + Veredicto + Mentor
+# TAB 4: GRÁFICOS
 # ============================================================================
 
 with tabs[3]:
-    st.header("🦈 AI Analysis - Investment Committee")
+    st.header(f"📈 {ticker} - Gráficos")
     
-    ai_tabs = st.tabs(["🦈 Comité", "⚖️ Veredicto", "👨‍🏫 Mentor"])
+    period = st.selectbox("Período", ["1mo", "3mo", "6mo", "1y", "2y"], index=3)
     
-    # COMITÉ subtab content will be added below
+    # Candlestick
+    candle = st.session_state.chart_service.create_candlestick_chart(ticker, period)
+    if candle:
+        st.plotly_chart(candle, use_container_width=True)
     
+    # Performance
+    perf = st.session_state.chart_service.create_performance_chart(ticker, period)
+    if perf:
+        st.plotly_chart(perf, use_container_width=True)
+
 # ============================================================================
-# TAB 4: PORTFOLIO - Optimizer
+# TAB 5: COMPARAR
 # ============================================================================
 
 with tabs[4]:
+    st.header("🔄 Comparativa de Tickers")
+    
+    tickers_input = st.text_input("Tickers (separados por coma)", "AAPL, MSFT, GOOGL, TSLA")
+    tickers_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
+    
+    if len(tickers_list) >= 2 and st.button("🔍 Comparar Fundamentales"):
+        with st.spinner("Comparando..."):
+            result = st.session_state.comparator.compare(tickers_list)
+            
+            if result:
+                st.success(f"🏆 Mejor: {result.winner} (Score: {result.scores[result.winner]})")
+                
+                st.dataframe(result.comparison_table, use_container_width=True)
+                
+                c1, c2 = st.columns(2)
+                c1.plotly_chart(result.charts['radar'], use_container_width=True)
+                c2.plotly_chart(result.charts['valuation'], use_container_width=True)
+                
+                st.plotly_chart(result.charts['bars'], use_container_width=True)
+                
+                # Multi comparison chart
+                multi = st.session_state.chart_service.create_multi_comparison(tickers_list)
+                if multi:
+                    st.plotly_chart(multi, use_container_width=True)
+    
+    # OpenBB Comparison Table
+    st.markdown("---")
+    st.subheader("📊 Tabla de Comparación (Estilo OpenBB)")
+    
+    if len(tickers_list) >= 2:
+        comp_df = st.session_state.openbb.compare_tickers(tickers_list)
+        if comp_df is not None:
+            st.dataframe(
+                comp_df.style.format({
+                    'Price': '${:.2f}',
+                    'Market Cap (B)': '${:.1f}B',
+                    'P/E': '{:.1f}',
+                    'P/S': '{:.1f}',
+                    'P/B': '{:.1f}',
+                    'EV/EBITDA': '{:.1f}',
+                    'Dividend Yield': '{:.2f}%',
+                    'Gross Margin': '{:.1f}%',
+                    'Net Margin': '{:.1f}%',
+                    'ROE': '{:.1f}%',
+                    'Debt/Equity': '{:.1f}',
+                }),
+                use_container_width=True
+            )
+
+# ============================================================================
+# TAB 6: OPTIMIZER
+# ============================================================================
+
+with tabs[5]:
     st.header("⚖️ Portfolio Optimizer (Markowitz)")
     st.caption("Optimización científica usando Modern Portfolio Theory")
     
@@ -645,12 +694,12 @@ with tabs[4]:
                 st.error(msg)
 
 # ============================================================================
-# TAB 3: AI ANALYSIS - Contenido COMÉ (continuación)
+# TAB 6: COMITÉ
 # ============================================================================
 
-    with ai_tabs[0]:  # COMÉ
-        st.subheader("🦈 Auditoría Institucional")
-        st.caption(f"Macro: {macro.brief}")
+with tabs[6]:  # Actualizado de tabs[5] a tabs[6]
+    st.header("🦈 Auditoría Institucional")
+    st.caption(f"Macro: {macro.brief}")
     
     # === SELECTOR DE MODO (NUEVO) ===
     col_info, col_mode = st.columns([3, 1])
@@ -721,11 +770,11 @@ with tabs[4]:
             st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================================
-# TAB 3: AI ANALYSIS - Contenido VEREDICTO (continuación)
+# TAB 8: VEREDICTO
 # ============================================================================
 
-    with ai_tabs[1]:  # VEREDICTO
-        st.subheader("⚖️ Veredicto Final")
+with tabs[7]:
+    st.header("⚖️ Veredicto Final")
     
     if not st.session_state.debate_raw:
         st.info("Ejecuta la auditoría primero en la pestaña COMITÉ")
@@ -802,6 +851,17 @@ with tabs[4]:
             st.markdown(st.session_state.renderer.get_pdf_download_link("", ticker), unsafe_allow_html=True)
 
 # ============================================================================
+# TAB 9: BIBLIOTECA
+# ============================================================================
+
+with tabs[8]:
+    st.header("📚 Biblioteca de Sabiduría")
+    st.caption("Sube libros de inversión para enriquecer el análisis de la IA")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("📤 Añadir Libro")
         book_file = st.file_uploader("Subir libro (PDF, EPUB, MOBI, TXT)", type=['pdf', 'txt', 'md', 'epub', 'mobi'])
         book_title = st.text_input("Título del libro", "")
         book_author = st.text_input("Autor", "")
@@ -944,9 +1004,13 @@ with tabs[10]:
     else:
         st.info("Sin historial de análisis")
 
-    with res_tabs[2]:  # SEC
-        st.subheader("📄 SEC Filings Analyzer")
-        st.caption("Análisis automático de 10-K, 10-Q y otros documentos SEC")
+# ============================================================================
+# TAB 12: SEC FILINGS ANALYZER (FinRobot-inspired)
+# ============================================================================
+
+with tabs[11]:
+    st.header("📄 SEC Filings Analyzer")
+    st.caption("Análisis automático de 10-K, 10-Q y otros documentos SEC • Inspirado en FinRobot")
     
     sec = st.session_state.sec_analyzer
     
