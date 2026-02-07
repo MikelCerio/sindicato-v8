@@ -15,6 +15,7 @@ from datetime import datetime
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import os
 
 # Configuración PRIMERO (debe ser lo primero en la app)
 st.set_page_config(
@@ -101,6 +102,58 @@ macro = get_macro_context()
 with st.sidebar:
     st.title("🏛️ SINDICATO V8")
     st.caption("ELITE Edition • Chain of Thought")
+    st.markdown("---")
+    
+    # === API KEY CONFIGURATION ===
+    st.subheader("🔑 Configuración")
+    
+    # Check if API key is configured
+    api_key_configured = False
+    api_key_source = None
+    
+    # Priority 1: Session state (user input)
+    if 'user_api_key' in st.session_state and st.session_state.user_api_key:
+        api_key_configured = True
+        api_key_source = "Usuario"
+    # Priority 2: Streamlit secrets
+    elif hasattr(st, 'secrets') and 'openai' in st.secrets:
+        api_key_configured = True
+        api_key_source = "Secrets"
+    # Priority 3: Environment variable
+    elif os.getenv('OPENAI_API_KEY'):
+        api_key_configured = True
+        api_key_source = "Entorno"
+    
+    if api_key_configured:
+        st.success(f"✅ API Key configurada ({api_key_source})")
+    else:
+        st.warning("⚠️ API Key no configurada")
+        
+        with st.expander("🔧 Configurar API Key", expanded=not api_key_configured):
+            st.caption("Ingresa tu API key de OpenAI para usar la app")
+            
+            user_key = st.text_input(
+                "OpenAI API Key",
+                type="password",
+                placeholder="sk-proj-...",
+                help="Tu API key se guardará solo en esta sesión"
+            )
+            
+            if st.button("💾 Guardar API Key"):
+                if user_key and user_key.startswith("sk-"):
+                    st.session_state.user_api_key = user_key
+                    # Set environment variable for this session
+                    os.environ['OPENAI_API_KEY'] = user_key
+                    st.success("✅ API Key guardada!")
+                    st.rerun()
+                else:
+                    st.error("❌ API Key inválida (debe empezar con 'sk-')")
+            
+            st.markdown("---")
+            st.caption("💡 **¿Dónde conseguir una API key?**")
+            st.markdown("[🔗 OpenAI Platform](https://platform.openai.com/api-keys)")
+            st.caption("La API key solo se guarda en tu sesión actual y no se comparte.")
+    
     st.markdown("---")
     
     # === MACRO DASHBOARD (Pablo Gil Style) ===

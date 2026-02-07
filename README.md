@@ -140,12 +140,55 @@ sindicato_v8/
 
 ---
 
-## 🔑 API Keys Necesarias
+## 🔑 Configuración de API Key
 
-| Servicio | Variable | Requerido |
-|----------|----------|-----------|
-| OpenAI | `OPENAI_API_KEY` | ✅ Sí |
-| OpenBB | - | ❌ No (usa providers gratuitos) |
+**Cada usuario debe configurar su propia API key de OpenAI.**
+
+### ⭐ Opción 1: Desde la App (Más Fácil)
+
+1. Inicia la app: `streamlit run app.py`
+2. En la sidebar, haz clic en **"🔧 Configurar API Key"**
+3. Ingresa tu API key de OpenAI
+4. Click en **"💾 Guardar API Key"**
+5. ¡Listo!
+
+### 📝 Opción 2: Archivo Local
+
+```bash
+# Copia el ejemplo
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+
+# Edita y añade tu API key
+# .streamlit/secrets.toml
+[openai]
+api_key = "sk-proj-TU-API-KEY-AQUI"
+```
+
+### 🌍 Opción 3: Variable de Entorno
+
+```bash
+# Windows (PowerShell)
+$env:OPENAI_API_KEY = "sk-proj-TU-API-KEY-AQUI"
+
+# Linux/Mac
+export OPENAI_API_KEY="sk-proj-TU-API-KEY-AQUI"
+```
+
+📖 **Guía completa:** Ver [API_KEY_SETUP.md](API_KEY_SETUP.md)
+
+### 🔐 Seguridad
+
+- ✅ Cada usuario usa su propia API key
+- ✅ Las keys se guardan solo en la sesión del usuario
+- ✅ El archivo `secrets.toml` está en `.gitignore`
+- ❌ NUNCA compartas tu API key
+- ❌ NUNCA subas `secrets.toml` a GitHub
+
+### 🎯 ¿Dónde conseguir una API key?
+
+1. Ve a: https://platform.openai.com/api-keys
+2. Crea una nueva API key
+3. Cópiala (empieza con `sk-proj-...`)
 
 ---
 
