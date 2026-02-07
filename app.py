@@ -1363,16 +1363,31 @@ with tabs[11]:
                 # Red Flags
                 st.markdown("### 🔴 Red Flags")
                 if analyzed.red_flags:
-                    for flag in analyzed.red_flags[:5]:
-                        st.warning(f"⚠️ {flag}")
+                    # Check defensivo anti-matrix
+                    flags = analyzed.red_flags
+                    if isinstance(flags, str):
+                        flags = [l.strip() for l in flags.split('\n') if l.strip()]
+                    elif isinstance(flags, list) and len(flags) == 1 and '\n' in flags[0]:
+                        flags = [l.strip() for l in flags[0].split('\n') if l.strip()]
+                        
+                    for flag in flags[:5]:
+                        if len(flag) > 2: # Ignorar letras sueltas
+                            st.warning(f"⚠️ {flag}")
                 else:
                     st.success("✅ Sin red flags significativos")
                 
                 # Key Insights
                 st.markdown("### 💡 Key Insights")
                 if analyzed.key_insights:
-                    for insight in analyzed.key_insights[:5]:
-                        st.write(f"• {insight}")
+                    insights = analyzed.key_insights
+                    if isinstance(insights, str):
+                        insights = [l.strip() for l in insights.split('\n') if l.strip()]
+                    elif isinstance(insights, list) and len(insights) == 1 and '\n' in insights[0]:
+                        insights = [l.strip() for l in insights[0].split('\n') if l.strip()]
+                        
+                    for insight in insights[:5]:
+                        if len(insight) > 2:
+                            st.write(f"• {insight}")
             
             # Bull vs Bear
             st.markdown("---")

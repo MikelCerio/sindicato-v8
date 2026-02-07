@@ -441,9 +441,26 @@ FORMATO DE RESPUESTA (usa exactamente estos headers):
         if not section:
             return []
         
-        # Buscar items con bullets o números
-        items = re.findall(r'[-•*\d.]\s*(.+?)(?=\n[-•*\d.]|\Z)', section, re.DOTALL)
-        return [item.strip() for item in items if item.strip()]
+        if not section:
+            return []
+        
+        # 1. Intentar buscar bullets
+        items = re.findall(r'(?:^|\n)\s*[-•*]\s+(.+?)(?=\n[-•*]|\Z)', section, re.DOTALL)
+        if items:
+            return [item.strip() for item in items if item.strip()]
+            
+        # 2. Intentar buscar números (1., 2.)
+        items = re.findall(r'(?:^|\n)\s*\d+\.\s+(.+?)(?=\n\d+\.|\Z)', section, re.DOTALL)
+        if items:
+            return [item.strip() for item in items if item.strip()]
+            
+        # 3. Fallback: Dividir por líneas si parecen ser items
+        lines = [line.strip() for line in section.split('\n') if line.strip()]
+        if len(lines) > 1:
+            return lines
+            
+        # 4. Si es un solo bloque de texto, devolver como único item
+        return [section.strip()]
     
     # =========================================================================
     # COMPARACIÓN YoY
