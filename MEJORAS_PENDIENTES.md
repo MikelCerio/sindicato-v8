@@ -1,6 +1,6 @@
 # 🚀 SINDICATO V8 ELITE+ - Plan de Mejoras v2
-## Fecha: 2026-02-06
-## Estado: En progreso
+## Fecha: 2026-02-07
+## Estado: En progreso 💪
 
 ---
 
@@ -9,19 +9,22 @@
 ### ✅ Funcionando Bien:
 - SEC Filings Analyzer (10-K/10-Q desde EDGAR)
 - Comité de Inversiones (CrewAI)
-- **Agente Alpha** (Small Caps con Skin in the Game) ✨ NUEVO
-- **Screener/Descubridor** (encuentra alternativas mejores) ✨ NUEVO
+- **Agente Alpha** (Small Caps con Skin in the Game) ✨
+- **Screener/Descubridor** (encuentra alternativas mejores) ✨
+- **MacroService** (Pablo Gil style - Curva tipos, VIX, DXY, Oro) ✨ NUEVO
+- **UI/UX Mejorada** (Tabs visibles, CSS profesional, sidebar macro) ✨ NUEVO
+- **Sentiment Fix** (parsing de noticias corregido) ✨ NUEVO
 - Veredicto Final con allocation
 - Biblioteca básica (3 libros de sabiduría)
 - Portfolio Optimizer (Markowitz)
 - Gráficos de precios
 
-### ⚠️ Necesita Mejoras:
-1. **Biblioteca** - Solo PDF/TXT, falta EPUB/MOBI
-2. **Búsqueda por Sección** - UI caótica
-3. **OpenBB** - Integración limitada
-4. **Informes** - Pobres, necesitan más datos
-5. **Mentor** - Pocas sugerencias
+### ⚠️ Pendiente:
+1. **Biblioteca Persistente** - Embeddings guardados en disco
+2. **Soporte EPUB/MOBI** - Formatos ebook populares
+3. **GraphRAG** - Para análisis más profundo
+4. **OpenBB Expandido** - Más datos institucionales
+5. **Temperatura** - Ajustar para comité (0.1-0.3)
 
 ---
 
