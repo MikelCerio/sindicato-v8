@@ -366,6 +366,19 @@ with tabs[0]:
     with st.expander("📊 Estados Financieros (en millones USD)", expanded=False):
         
         # Helper function para formatear números grandes
+        def format_number_millions(x):
+            """Convierte número a formato legible en millones."""
+            if pd.isna(x):
+                return "N/A"
+            if abs(x) >= 1_000_000_000:
+                return f"${x/1_000_000_000:,.1f}B"
+            elif abs(x) >= 1_000_000:
+                return f"${x/1_000_000:,.0f}M"
+            elif abs(x) >= 1_000:
+                return f"${x/1_000:,.0f}K"
+            else:
+                return f"${x:,.0f}"
+        
         def format_financial_df(df):
             """Convierte números a millones y formatea para legibilidad."""
             if df is None or df.empty:
@@ -373,30 +386,150 @@ with tabs[0]:
             
             formatted_df = df.copy()
             
-            # Formatear cada columna
             for col in formatted_df.columns:
                 if formatted_df[col].dtype in ['float64', 'int64', 'float32', 'int32']:
-                    # Convertir a millones y formatear
-                    formatted_df[col] = formatted_df[col].apply(
-                        lambda x: f"${x/1_000_000:,.0f}M" if pd.notna(x) and abs(x) >= 1_000_000 
-                        else (f"${x:,.0f}" if pd.notna(x) else "N/A")
-                    )
+                    formatted_df[col] = formatted_df[col].apply(format_number_millions)
             
-            # Formatear nombres de columnas (fechas)
             formatted_df.columns = [str(c).split(' ')[0] if ' ' in str(c) else str(c) for c in formatted_df.columns]
             
             return formatted_df
         
-        st.caption("💡 Valores en millones USD (M = millones)")
+        def get_key_metric(df, metric_names, fallback=0):
+            """Extrae métrica clave del dataframe."""
+            if df is None or df.empty:
+                return fallback
+            for name in metric_names:
+                for idx in df.index:
+                    if name.lower() in str(idx).lower():
+                        val = df.loc[idx].iloc[0]  # Último año
+                        return val if pd.notna(val) else fallback
+            return fallback
+        
+        # --- KEY METRICS CARDS ---
+        st.subheader("📈 Métricas Clave")
+        
+        try:
+            income_df = st.session_state.openbb.get_income_statement(ticker, period="annual", limit=4)
+            balance_df = st.session_state.openbb.get_balance_sheet(ticker, period="annual", limit=4)
+            cashflow_df = st.session_state.openbb.get_cash_flow(ticker, period="annual", limit=4)
+            
+            if income_df is not None and not income_df.empty:
+                # Extraer métricas clave
+                revenue = get_key_metric(income_df, ['total revenue', 'revenue', 'net sales'])
+                net_income = get_key_metric(income_df, ['net income', 'net earnings'])
+                ebitda = get_key_metric(income_df, ['ebitda', 'normalized ebitda'])
+                gross_profit = get_key_metric(income_df, ['gross profit'])
+                
+                # Calcular YoY change si hay datos suficientes
+                def calc_yoy(df, metric_names):
+                    val_current = get_key_metric(df, metric_names)
+                    if df is not None and len(df.columns) >= 2:
+                        for name in metric_names:
+                            for idx in df.index:
+                                if name.lower() in str(idx).lower():
+                                    val_prev = df.loc[idx].iloc[1] if len(df.columns) > 1 else None
+                                    if pd.notna(val_current) and pd.notna(val_prev) and val_prev != 0:
+                                        return ((val_current - val_prev) / abs(val_prev)) * 100
+                    return None
+                
+                revenue_yoy = calc_yoy(income_df, ['total revenue', 'revenue'])
+                net_income_yoy = calc_yoy(income_df, ['net income'])
+                
+                # Mostrar cards con métricas
+                m1, m2, m3, m4 = st.columns(4)
+                
+                with m1:
+                    delta_str = f"{revenue_yoy:+.1f}% YoY" if revenue_yoy else None
+                    delta_color = "normal" if revenue_yoy and revenue_yoy >= 0 else "inverse"
+                    st.metric("💰 Revenue", format_number_millions(revenue), delta=delta_str)
+                
+                with m2:
+                    delta_str = f"{net_income_yoy:+.1f}% YoY" if net_income_yoy else None
+                    st.metric("📈 Net Income", format_number_millions(net_income), delta=delta_str)
+                
+                with m3:
+                    margin = (net_income / revenue * 100) if revenue and revenue != 0 else 0
+                    st.metric("📊 Net Margin", f"{margin:.1f}%")
+                
+                with m4:
+                    st.metric("⚡ EBITDA", format_number_millions(ebitda))
+                
+                st.markdown("---")
+                
+                # --- MINI TREND CHART ---
+                st.subheader("📊 Tendencia Financiera")
+                
+                # Crear datos para gráfico
+                import plotly.graph_objects as go
+                
+                years = []
+                revenues = []
+                net_incomes = []
+                
+                for col in income_df.columns[:4]:  # Hasta 4 años
+                    year = str(col).split('-')[0] if '-' in str(col) else str(col)[:4]
+                    years.append(year)
+                    
+                    rev = get_key_metric(income_df[[col]], ['total revenue', 'revenue'])
+                    ni = get_key_metric(income_df[[col]], ['net income'])
+                    revenues.append(rev / 1_000_000_000 if rev else 0)  # En billones
+                    net_incomes.append(ni / 1_000_000_000 if ni else 0)
+                
+                # Invertir para orden cronológico
+                years.reverse()
+                revenues.reverse()
+                net_incomes.reverse()
+                
+                fig = go.Figure()
+                
+                fig.add_trace(go.Bar(
+                    name='Revenue',
+                    x=years,
+                    y=revenues,
+                    marker_color='#00ff88',
+                    text=[f"${v:.1f}B" for v in revenues],
+                    textposition='outside'
+                ))
+                
+                fig.add_trace(go.Scatter(
+                    name='Net Income',
+                    x=years,
+                    y=net_incomes,
+                    mode='lines+markers+text',
+                    line=dict(color='#ffaa00', width=3),
+                    marker=dict(size=10),
+                    text=[f"${v:.1f}B" for v in net_incomes],
+                    textposition='top center'
+                ))
+                
+                fig.update_layout(
+                    template='plotly_dark',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(10,10,10,0.5)',
+                    height=300,
+                    yaxis_title='Billions USD',
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                    margin=dict(l=20, r=20, t=40, b=20)
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+        except Exception as e:
+            st.warning(f"Could not load key metrics: {e}")
+        
+        st.markdown("---")
+        
+        # --- DETAILED STATEMENTS ---
+        st.subheader("📑 Estados Detallados")
+        st.caption("💡 Valores: B = Billones, M = Millones, K = Miles USD")
         
         fin_tabs = st.tabs(["📈 Income Statement", "📊 Balance Sheet", "💰 Cash Flow"])
         
         with fin_tabs[0]:
             try:
-                income_df = st.session_state.openbb.get_income_statement(ticker, period="annual", limit=3)
                 if income_df is not None and not income_df.empty:
                     formatted_income = format_financial_df(income_df)
-                    st.dataframe(formatted_income, use_container_width=True, height=400)
+                    st.dataframe(formatted_income, use_container_width=True, height=350)
                 else:
                     st.info("No income statement data available")
             except Exception as e:
@@ -404,10 +537,9 @@ with tabs[0]:
         
         with fin_tabs[1]:
             try:
-                balance_df = st.session_state.openbb.get_balance_sheet(ticker, period="annual", limit=3)
                 if balance_df is not None and not balance_df.empty:
                     formatted_balance = format_financial_df(balance_df)
-                    st.dataframe(formatted_balance, use_container_width=True, height=400)
+                    st.dataframe(formatted_balance, use_container_width=True, height=350)
                 else:
                     st.info("No balance sheet data available")
             except Exception as e:
@@ -415,10 +547,9 @@ with tabs[0]:
         
         with fin_tabs[2]:
             try:
-                cashflow_df = st.session_state.openbb.get_cash_flow(ticker, period="annual", limit=3)
                 if cashflow_df is not None and not cashflow_df.empty:
                     formatted_cashflow = format_financial_df(cashflow_df)
-                    st.dataframe(formatted_cashflow, use_container_width=True, height=400)
+                    st.dataframe(formatted_cashflow, use_container_width=True, height=350)
                 else:
                     st.info("No cash flow data available")
             except Exception as e:
