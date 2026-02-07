@@ -220,21 +220,50 @@ class MarketDataService:
         
         try:
             stock = yf.Ticker(ticker)
-            news = stock.news or []
+            
+            # yfinance puede devolver news como atributo o método
+            try:
+                news = stock.news or []
+            except:
+                # En versiones más nuevas puede ser diferente
+                news = getattr(stock, 'news', []) or []
+            
+            if not news:
+                logger.warning(f"No se encontraron noticias para {ticker}")
+                return []
             
             processed = []
             for n in news[:limit]:
-                processed.append({
-                    'title': n.get('title', ''),
-                    'link': n.get('link', '#'),
-                    'publisher': n.get('publisher', 'Unknown'),
-                    'timestamp': datetime.fromtimestamp(
-                        n.get('providerPublishTime', 0)
-                    )
-                })
+                # Manejo flexible de la estructura de noticias
+                if isinstance(n, dict):
+                    title = n.get('title', n.get('headline', ''))
+                    link = n.get('link', n.get('url', '#'))
+                    publisher = n.get('publisher', n.get('source', 'Unknown'))
+                    timestamp_raw = n.get('providerPublishTime', n.get('publishedAt', 0))
+                    
+                    # Convertir timestamp
+                    if isinstance(timestamp_raw, int):
+                        timestamp = datetime.fromtimestamp(timestamp_raw)
+                    elif isinstance(timestamp_raw, str):
+                        try:
+                            timestamp = datetime.fromisoformat(timestamp_raw.replace('Z', '+00:00'))
+                        except:
+                            timestamp = datetime.now()
+                    else:
+                        timestamp = datetime.now()
+                    
+                    if title:  # Solo agregar si hay título
+                        processed.append({
+                            'title': title,
+                            'link': link,
+                            'publisher': publisher,
+                            'timestamp': timestamp
+                        })
             
             self._set_cached(cache_key, processed)
+            logger.info(f"Obtenidas {len(processed)} noticias para {ticker}")
             return processed
+            
         except Exception as e:
             logger.error(f"Error obteniendo noticias de {ticker}: {e}")
             return []

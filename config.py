@@ -271,120 +271,213 @@ STREAMLIT_CONFIG = {
 
 CSS_STYLES = """
 <style>
-    /* Base */
-    .stApp {background-color: #0a0a0a;}
+    /* === BASE STYLING === */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
-    /* Sidebar */
+    .stApp {
+        background: linear-gradient(180deg, #0a0a0a 0%, #0d1117 100%);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    /* === SIDEBAR - Professional Look === */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0d0d0d 0%, #1a1a1a 100%) !important;
-        border-right: 1px solid #2a2a2a;
+        background: linear-gradient(180deg, #0d1117 0%, #161b22 100%) !important;
+        border-right: 1px solid #21262d;
     }
-    [data-testid="stSidebar"] * {color: #e0e0e0 !important;}
+    [data-testid="stSidebar"] * {color: #c9d1d9 !important;}
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 {
+        color: #ffffff !important;
+        font-weight: 600;
+    }
     
-    /* Headers */
-    h1, h2, h3 {color: #ffffff !important;}
-    h1 {border-bottom: 2px solid #00ff88; padding-bottom: 10px;}
+    /* === HEADERS === */
+    h1, h2, h3 {
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+    h1 {
+        border-bottom: 3px solid #238636;
+        padding-bottom: 12px;
+    }
+    h2 {
+        border-bottom: 1px solid #21262d;
+        padding-bottom: 8px;
+    }
     
-    /* News Cards */
-    .news-positive {
-        background: linear-gradient(135deg, #001a00 0%, #002200 100%);
-        border-left: 4px solid #00ff00;
-        padding: 12px 15px;
-        margin: 8px 0;
+    /* === TABS - More Visible === */
+    .stTabs {
+        background: #161b22;
         border-radius: 8px;
-        transition: transform 0.2s;
+        padding: 4px;
+        margin-bottom: 20px;
     }
-    .news-positive:hover {transform: translateX(5px);}
-    
-    .news-negative {
-        background: linear-gradient(135deg, #1a0000 0%, #220000 100%);
-        border-left: 4px solid #ff4444;
-        padding: 12px 15px;
-        margin: 8px 0;
-        border-radius: 8px;
-        transition: transform 0.2s;
-    }
-    .news-negative:hover {transform: translateX(5px);}
-    
-    .news-neutral {
-        background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
-        border-left: 4px solid #888888;
-        padding: 12px 15px;
-        margin: 8px 0;
-        border-radius: 8px;
-        transition: transform 0.2s;
-    }
-    .news-neutral:hover {transform: translateX(5px);}
-    
-    /* Allocation Box */
-    .allocation-box {
-        background: linear-gradient(135deg, #001a00 0%, #003300 100%);
-        border: 2px solid #00ff00;
-        padding: 25px;
-        border-radius: 15px;
-        margin: 20px 0;
-        box-shadow: 0 0 30px rgba(0, 255, 0, 0.1);
-    }
-    
-    /* History Box */
-    .history-box {
-        background: #0f0f0f;
-        border: 1px solid #333;
-        padding: 20px;
-        border-radius: 10px;
-        margin: 15px 0;
-    }
-    
-    /* Metrics */
-    [data-testid="stMetricValue"] {
-        font-size: 1.8rem !important;
-        font-weight: 700 !important;
-    }
-    
-    /* Buttons */
-    .stButton > button {
-        background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
-        border: 1px solid #444;
-        transition: all 0.3s;
-    }
-    .stButton > button:hover {
-        border-color: #00ff88;
-        box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
-    }
-    
-    /* Expander */
-    .streamlit-expanderHeader {
-        background: #1a1a1a !important;
-        border-radius: 8px;
-    }
-    
-    /* Tabs */
-    .stTabs [data-baseweb="tab"] {
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px;
         background: transparent;
-        border-bottom: 2px solid transparent;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background: #21262d;
+        border-radius: 6px;
+        padding: 10px 16px;
+        font-weight: 500;
+        color: #8b949e !important;
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
     }
     .stTabs [data-baseweb="tab"]:hover {
-        border-bottom-color: #00ff88;
+        background: #30363d;
+        color: #c9d1d9 !important;
+        border-color: #30363d;
+    }
+    .stTabs [aria-selected="true"] {
+        background: #238636 !important;
+        color: #ffffff !important;
+        font-weight: 600;
     }
     
-    /* Audit Cards */
-    .audit-value {
-        background: linear-gradient(135deg, #1a0a00 0%, #2a1500 100%);
-        border: 1px solid #ff8800;
-        padding: 20px;
+    /* === NEWS CARDS === */
+    .news-positive {
+        background: linear-gradient(135deg, #0d1f0d 0%, #132714 100%);
+        border-left: 4px solid #238636;
+        padding: 14px 18px;
+        margin: 10px 0;
+        border-radius: 8px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .news-positive:hover {
+        transform: translateX(6px);
+        box-shadow: 0 4px 12px rgba(35, 134, 54, 0.2);
+    }
+    
+    .news-negative {
+        background: linear-gradient(135deg, #210e0e 0%, #2a1111 100%);
+        border-left: 4px solid #da3633;
+        padding: 14px 18px;
+        margin: 10px 0;
+        border-radius: 8px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .news-negative:hover {
+        transform: translateX(6px);
+        box-shadow: 0 4px 12px rgba(218, 54, 51, 0.2);
+    }
+    
+    .news-neutral {
+        background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+        border-left: 4px solid #6e7681;
+        padding: 14px 18px;
+        margin: 10px 0;
+        border-radius: 8px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .news-neutral:hover {
+        transform: translateX(6px);
+        box-shadow: 0 4px 12px rgba(110, 118, 129, 0.2);
+    }
+    
+    /* === ALLOCATION BOX === */
+    .allocation-box {
+        background: linear-gradient(135deg, #0d1f0d 0%, #132714 100%);
+        border: 2px solid #238636;
+        padding: 28px;
+        border-radius: 12px;
+        margin: 24px 0;
+        box-shadow: 0 0 40px rgba(35, 134, 54, 0.15);
+    }
+    
+    /* === HISTORY BOX === */
+    .history-box {
+        background: #161b22;
+        border: 1px solid #30363d;
+        padding: 22px;
         border-radius: 10px;
+        margin: 16px 0;
+    }
+    
+    /* === METRICS === */
+    [data-testid="stMetricValue"] {
+        font-size: 1.6rem !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.85rem !important;
+        color: #8b949e !important;
+    }
+    
+    /* === BUTTONS - Professional === */
+    .stButton > button {
+        background: linear-gradient(135deg, #21262d 0%, #30363d 100%);
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.25s ease;
+    }
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #30363d 0%, #3a4149 100%);
+        border-color: #238636;
+        box-shadow: 0 0 20px rgba(35, 134, 54, 0.25);
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #238636 0%, #2ea043 100%) !important;
+        border-color: #238636 !important;
+    }
+    
+    /* === EXPANDER === */
+    .streamlit-expanderHeader {
+        background: #21262d !important;
+        border-radius: 8px;
+        font-weight: 500;
+    }
+    
+    /* === AUDIT CARDS === */
+    .audit-value {
+        background: linear-gradient(135deg, #1a1205 0%, #2a1f0a 100%);
+        border: 1px solid #d29922;
+        padding: 22px;
+        border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(210, 153, 34, 0.1);
     }
     .audit-growth {
-        background: linear-gradient(135deg, #000a1a 0%, #001530 100%);
-        border: 1px solid #0088ff;
-        padding: 20px;
+        background: linear-gradient(135deg, #051a2a 0%, #0a2540 100%);
+        border: 1px solid #1f6feb;
+        padding: 22px;
         border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(31, 111, 235, 0.1);
     }
     .audit-risk {
-        background: linear-gradient(135deg, #1a0000 0%, #300000 100%);
-        border: 1px solid #ff0000;
-        padding: 20px;
+        background: linear-gradient(135deg, #200f0f 0%, #2f1515 100%);
+        border: 1px solid #da3633;
+        padding: 22px;
         border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(218, 54, 51, 0.1);
+    }
+    
+    /* === DATAFRAME === */
+    .dataframe {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    /* === INFO/WARNING/ERROR BOXES === */
+    .stAlert {
+        border-radius: 8px;
+    }
+    
+    /* === SCROLLBAR === */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #0d1117;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #30363d;
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #484f58;
     }
 </style>
 """

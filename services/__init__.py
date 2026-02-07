@@ -28,6 +28,7 @@ from .knowledge_library import (
 from .report_renderer import HTMLReportRenderer
 from .sec_analyzer import SECAnalyzer, SECFiling, format_filing_date, get_filing_icon
 from .screener_service import ScreenerService
+from .macro_service import MacroService, MacroDashboard
 
 __all__ = [
     # Core Services
@@ -64,4 +65,8 @@ __all__ = [
     
     # Screener (Discovery)
     'ScreenerService',
+    
+    # Macro Service (Pablo Gil)
+    'MacroService',
+    'MacroDashboard',
 ]

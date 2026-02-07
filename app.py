@@ -39,7 +39,9 @@ from services import (
     # === SEC ANALYZER (FinRobot-inspired) ===
     SECAnalyzer, format_filing_date, get_filing_icon,
     # === SCREENER (Discovery) ===
-    ScreenerService
+    ScreenerService,
+    # === MACRO SERVICE (Pablo Gil) ===
+    MacroService
 )
 from agents import InvestmentCommittee, MentorAgent
 
@@ -72,6 +74,7 @@ def init_state():
         'renderer': HTMLReportRenderer(),  # HTML Report Generator
         'sec_analyzer': SECAnalyzer(),  # SEC Filings Analyzer
         'screener': ScreenerService(),  # Stock Screener/Discovery
+        'macro_strategy': MacroService(),  # Macro Analysis (Pablo Gil)
         
         # === STATE ===
         'active_doc_name': None,
@@ -100,19 +103,56 @@ with st.sidebar:
     st.caption("ELITE Edition • Chain of Thought")
     st.markdown("---")
     
-    # Macro Context
-    st.subheader("🌍 Régimen de Mercado")
-    st.metric("Estado", f"{macro.regime_emoji} {macro.regime}")
+    # === MACRO DASHBOARD (Pablo Gil Style) ===
+    st.subheader("🌍 Visión Macro")
+    
+    # Botón para actualizar análisis macro completo
+    with st.expander("📊 Dashboard Pablo Gil", expanded=False):
+        if st.button("🔄 Actualizar Macro", use_container_width=True):
+            st.session_state.macro_dashboard = st.session_state.macro_strategy.get_dashboard()
+        
+        if hasattr(st.session_state, 'macro_dashboard'):
+            dash = st.session_state.macro_dashboard
+            
+            # Régimen
+            st.metric("Régimen", f"{dash.macro_emoji} {dash.macro_regime}")
+            
+            # Curva de Tipos
+            st.caption("📈 Curva de Tipos (10Y-2Y)")
+            spread_color = "🔴" if dash.yield_curve_spread < 0 else "🟢"
+            st.write(f"{spread_color} Spread: **{dash.yield_curve_spread:.2f}%**")
+            st.caption(dash.curve_status)
+            
+            # Indicadores clave
+            c1, c2 = st.columns(2)
+            c1.metric("VIX", f"{dash.vix:.1f}")
+            c2.metric("DXY", f"{dash.dxy:.1f}")
+            
+            c3, c4 = st.columns(2)
+            c3.metric("Oro", f"${dash.gold_price:.0f}")
+            c4.metric("10Y", f"{dash.treasury_10y:.2f}%")
+            
+            # Señal de Recesión
+            signal = st.session_state.macro_strategy.check_recession_signal()
+            st.info(f"**Recesión:** {signal['status']}\n\n{signal['explanation']}")
+            
+            # Lo que diría Pablo Gil
+            st.warning(f"🎙️ **Pablo Gil:** {dash.pablo_gil_says[:150]}...")
+    
+    # Régimen simple (siempre visible)
+    st.metric("Estado Mercado", f"{macro.regime_emoji} {macro.regime}")
     c1, c2 = st.columns(2)
     c1.metric("VIX", f"{macro.vix:.1f}")
     c2.metric("10Y", f"{macro.treasury_10y:.2f}%")
     
     if macro.is_crisis:
         st.error("⚠️ MODO CRISIS - Preservar Capital")
+    elif macro.is_elevated:
+        st.warning("⚡ Volatilidad elevada - Precaución")
     
     st.markdown("---")
     
-    # Document Status
+    # === DOCUMENTO ACTIVO ===
     st.subheader("📂 Documento Activo")
     if st.session_state.active_doc_name:
         st.success(st.session_state.active_doc_name[:25] + "...")
@@ -127,7 +167,7 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Library Status
+    # === BIBLIOTECA ===
     st.subheader("📚 Biblioteca")
     lib = st.session_state.library
     st.metric("Libros", lib.book_count)
@@ -137,6 +177,23 @@ with st.sidebar:
                 n = add_essential_wisdom(lib)
                 st.success(f"✅ {n} fuentes añadidas")
                 st.rerun()
+    
+    st.markdown("---")
+    
+    # === NAVEGACIÓN RÁPIDA ===
+    st.subheader("🧭 Navegación")
+    st.caption("Secciones principales:")
+    
+    nav_options = {
+        "📊 Análisis": "Datos y fundamentos",
+        "🦈 Comité": "Auditoría del equipo",
+        "⚖️ Veredicto": "Decisión final",
+        "📄 SEC": "Filings oficiales",
+        "🕵️ Descubrir": "Encontrar alternativas"
+    }
+    
+    for nav, desc in nav_options.items():
+        st.caption(f"**{nav}** - {desc}")
 
 # ============================================================================
 # MAIN CONTENT
