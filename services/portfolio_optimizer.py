@@ -99,29 +99,41 @@ class PortfolioOptimizer:
         # Descargar datos
         try:
             import yfinance as yf
-            data = yf.download(tickers, period=period, progress=False, auto_adjust=True)
+            # Descargar datos (sin auto_adjust para tener Adj Close explícito)
+            data = yf.download(tickers, period=period, progress=False, auto_adjust=False)
             
-            # Manejar diferentes formatos de yfinance
+            prices = pd.DataFrame()
+            
+            # Caso 1: Multi-Index (múltiples tickers)
             if isinstance(data.columns, pd.MultiIndex):
-                # Multi-ticker download
-                if 'Adj Close' in data.columns.get_level_values(0):
+                # Intentar obtener Adj Close
+                try:
                     prices = data['Adj Close']
-                elif 'Close' in data.columns.get_level_values(0):
-                    prices = data['Close']
-                else:
-                    # Intentar con el primer nivel
-                    prices = data.iloc[:, data.columns.get_level_values(0) == data.columns.get_level_values(0)[0]]
-                    prices.columns = prices.columns.droplevel(0)
+                except KeyError:
+                    try:
+                        prices = data['Close']
+                    except KeyError:
+                        return None, "❌ No se encontraron columnas de precio (Close/Adj Close)"
+            
+            # Caso 2: Single Level (un solo ticker o estructura plana)
             else:
-                # Single ticker o formato simple
                 if 'Adj Close' in data.columns:
                     prices = data[['Adj Close']]
-                    prices.columns = tickers if len(tickers) == 1 else prices.columns
                 elif 'Close' in data.columns:
                     prices = data[['Close']]
-                    prices.columns = tickers if len(tickers) == 1 else prices.columns
                 else:
-                    prices = data
+                    return None, "❌ Estructura de datos desconocida de yfinance"
+                
+                # Si es un solo ticker, renombrar columna
+                if len(tickers) == 1:
+                    prices.columns = tickers
+            
+            # Limpiar datos y asegurar floats
+            prices = prices.dropna(axis=1, how='all') # Eliminar columnas vacías completo
+            prices = prices.dropna() # Eliminar filas con NaN
+            
+            if prices.empty:
+                return None, "❌ Datos vacíos tras limpieza"
             
             if prices.empty or len(prices) < 50:
                 return None, "❌ Datos históricos insuficientes."

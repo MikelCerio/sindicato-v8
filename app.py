@@ -264,6 +264,60 @@ ticker = ticker_selector(
     show_info=True
 )
 
+# === GESTIÓN INTELIGENTE DE ESTADO (MEMORY) ===
+if 'last_ticker' not in st.session_state:
+    st.session_state.last_ticker = ticker
+    if 'audit_history' not in st.session_state:
+        st.session_state.audit_history = {}
+
+# Si cambia el ticker, gestionar memoria
+if st.session_state.last_ticker != ticker:
+    # 1. Guardar estado del ticker anterior si hay datos
+    if st.session_state.debate_raw:
+        st.session_state.audit_history[st.session_state.last_ticker] = {
+            'debate_value': st.session_state.debate_value,
+            'debate_growth': st.session_state.debate_growth,
+            'debate_risk': st.session_state.debate_risk,
+            'debate_raw': st.session_state.debate_raw,
+            'veredicto': st.session_state.get('veredicto_final'),
+            'allocation': st.session_state.get('allocation_final'),
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    # 2. Intentar recuperar estado del nuevo ticker
+    if ticker in st.session_state.audit_history:
+        history = st.session_state.audit_history[ticker]
+        st.session_state.debate_value = history['debate_value']
+        st.session_state.debate_growth = history['debate_growth']
+        st.session_state.debate_risk = history['debate_risk']
+        st.session_state.debate_raw = history['debate_raw']
+        st.session_state.veredicto_final = history.get('veredicto')
+        st.session_state.allocation_final = history.get('allocation')
+        st.toast(f"♻️ Análisis de {ticker} recuperado de memoria")
+    else:
+        # 3. Limpiar si es un ticker nuevo sin historial en sesión
+        st.session_state.debate_value = None
+        st.session_state.debate_growth = None
+        st.session_state.debate_risk = None
+        st.session_state.debate_raw = None
+        st.session_state.veredicto_final = None
+        st.session_state.allocation_final = None
+    
+    st.session_state.last_ticker = ticker
+    st.rerun()
+
+# Guardar estado actual automáticamente al detectar cambios importantes
+if st.session_state.debate_raw:
+     st.session_state.audit_history[ticker] = {
+        'debate_value': st.session_state.debate_value,
+        'debate_growth': st.session_state.debate_growth,
+        'debate_risk': st.session_state.debate_risk,
+        'debate_raw': st.session_state.debate_raw,
+        'veredicto': st.session_state.get('veredicto_final'),
+        'allocation': st.session_state.get('allocation_final'),
+        'timestamp': datetime.now().isoformat()
+    }
+
 st.markdown("---")
 
 # Tabs (estructura temporal - pendiente reorganización UX)
@@ -741,14 +795,25 @@ with tabs[2]:
 with tabs[3]:
     st.header(f"📈 {ticker} - Gráficos")
     
-    period = st.selectbox("Período", ["1mo", "3mo", "6mo", "1y", "2y"], index=3)
+    period = st.selectbox(
+        "Período", 
+        ["1mo", "3mo", "6mo", "1y", "2y"], 
+        index=3,
+        help="Selecciona el rango de tiempo para los gráficos"
+    )
     
     # Candlestick
+    st.subheader("🕯️ Gráfico de Velas (Candlestick)")
+    st.caption("💡 Cada vela muestra: apertura, máximo, mínimo y cierre del día. **Verde** = cerró arriba de la apertura, **Rojo** = cerró abajo.")
+    
     candle = st.session_state.chart_service.create_candlestick_chart(ticker, period)
     if candle:
         st.plotly_chart(candle, use_container_width=True)
     
     # Performance
+    st.subheader("📊 Rendimiento Acumulado (%)")
+    st.caption("💡 El **rendimiento** muestra el cambio porcentual del precio desde el inicio del período. Si empezó en $100 y ahora está en $120, el rendimiento es +20%.")
+    
     perf = st.session_state.chart_service.create_performance_chart(ticker, period)
     if perf:
         st.plotly_chart(perf, use_container_width=True)
@@ -841,63 +906,91 @@ with tabs[5]:
         - **Efficient**: Target de retorno específico
         """)
     
-    if len(opt_list) >= 2 and st.button("🧮 OPTIMIZAR PORTFOLIO", use_container_width=True):
-        with st.spinner("Calculando Frontera Eficiente..."):
-            result, msg = st.session_state.optimizer.optimize(
-                opt_list, 
-                total_capital=capital,
-                strategy=strategy
+    if len(opt_list) >= 2:
+        if st.button("🧮 OPTIMIZAR PORTFOLIO", use_container_width=True, type="primary"):
+            with st.spinner("Calculando Frontera Eficiente..."):
+                result, msg = st.session_state.optimizer.optimize(
+                    opt_list, 
+                    total_capital=capital,
+                    strategy=strategy
+                )
+                
+                if result:
+                    st.session_state.optimization_result = result
+                    st.success(msg)
+                    st.rerun() # Refrescar para mostrar resultados persistentes
+                else:
+                    st.error(msg)
+    
+    # Mostrar resultados persistentes si existen
+    if st.session_state.optimization_result:
+        result = st.session_state.optimization_result
+        
+        # Opcional: Botón para limpiar resultados
+        if st.button("🗑️ Limpiar Resultados"):
+            st.session_state.optimization_result = None
+            st.rerun()
+
+        # Metrics con tooltips explicativos
+        c1, c2, c3 = st.columns(3)
+        c1.metric(
+            "Retorno Esperado", 
+            f"{result.expected_return*100:.1f}%",
+            help="📊 Rentabilidad anual esperada basada en datos históricos"
+        )
+        c2.metric(
+            "Volatilidad", 
+            f"{result.volatility*100:.1f}%",
+            help="📉 Desviación estándar de los retornos. Mayor = más riesgo"
+        )
+        c3.metric(
+            "Sharpe Ratio", 
+            f"{result.sharpe_ratio:.2f}",
+            help="⚖️ Retorno ajustado al riesgo. Mayor que 1.0 = bueno, >2.0 = excelente"
+        )
+        
+        # Allocation con explicación
+        st.subheader("💶 Asignación Óptima")
+        st.caption("💡 El peso de cada activo está calculado para **maximizar el Sharpe Ratio** (mejor retorno por unidad de riesgo)")
+        
+        col_pie, col_table = st.columns([1, 1])
+        
+        with col_pie:
+            fig = create_portfolio_pie_chart(result.allocation)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col_table:
+            alloc_df = pd.DataFrame([
+                {'Ticker': k, 'Capital (€)': v, 'Peso (%)': f"{result.weights[k]*100:.1f}%"}
+                for k, v in result.allocation.items()
+            ])
+            st.dataframe(alloc_df, use_container_width=True)
+        
+        # Efficient Frontier con explicación
+        st.subheader("📈 Frontera Eficiente")
+        st.caption("💡 La **Frontera Eficiente** muestra todas las carteras óptimas posibles. Cada punto es una combinación de activos que ofrece el máximo retorno para un nivel de riesgo dado. El punto verde es TU cartera optimizada.")
+        
+        frontier = st.session_state.optimizer.get_efficient_frontier_points(opt_list)
+        if frontier is not None:
+            fig = create_efficient_frontier_chart(
+                frontier, 
+                (result.expected_return, result.volatility)
             )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Correlation Matrix con explicación
+        if result.correlation_matrix is not None:
+            st.subheader("🔗 Matriz de Correlación")
+            st.caption("💡 La **correlación** mide cómo se mueven los activos juntos: **+1** = se mueven igual, **0** = independientes, **-1** = se mueven opuestos. Una buena diversificación busca activos con correlación baja o negativa.")
             
-            if result:
-                st.session_state.optimization_result = result
-                st.success(msg)
-                
-                # Metrics
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Retorno Esperado", f"{result.expected_return*100:.1f}%")
-                c2.metric("Volatilidad", f"{result.volatility*100:.1f}%")
-                c3.metric("Sharpe Ratio", f"{result.sharpe_ratio:.2f}")
-                
-                # Allocation
-                st.subheader("💶 Asignación Óptima")
-                
-                col_pie, col_table = st.columns([1, 1])
-                
-                with col_pie:
-                    fig = create_portfolio_pie_chart(result.allocation)
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                with col_table:
-                    alloc_df = pd.DataFrame([
-                        {'Ticker': k, 'Capital (€)': v, 'Peso (%)': f"{result.weights[k]*100:.1f}%"}
-                        for k, v in result.allocation.items()
-                    ])
-                    st.dataframe(alloc_df, use_container_width=True)
-                
-                # Efficient Frontier
-                st.subheader("📈 Frontera Eficiente")
-                frontier = st.session_state.optimizer.get_efficient_frontier_points(opt_list)
-                if frontier is not None:
-                    fig = create_efficient_frontier_chart(
-                        frontier, 
-                        (result.expected_return, result.volatility)
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                # Correlation Matrix
-                if result.correlation_matrix is not None:
-                    st.subheader("🔗 Matriz de Correlación")
-                    fig = px.imshow(
-                        result.correlation_matrix,
-                        text_auto='.2f',
-                        color_continuous_scale='RdYlGn_r',
-                        title='Correlación entre activos'
-                    )
-                    fig.update_layout(template='plotly_dark')
-                    st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.error(msg)
+            fig = px.imshow(
+                result.correlation_matrix,
+                text_auto='.2f',
+                color_continuous_scale='RdYlGn_r',
+                title='Correlación entre activos'
+            )
+            fig.update_layout(template='plotly_dark')
+            st.plotly_chart(fig, use_container_width=True)
 
 # ============================================================================
 # TAB 6: COMITÉ
@@ -1191,10 +1284,44 @@ with tabs[8]:
 with tabs[9]:
     st.header("👨🏫 Learning Oracle")
     
+    # Categorías de preguntas
     st.subheader("💡 Preguntas Sugeridas")
-    cols = st.columns(3)
-    for i, q in enumerate(SUGGESTED_QUESTIONS['general'][:3]):
-        if cols[i % 3].button(q[:40] + "...", key=f"q_{i}"):
+    
+    # Selector de categoría
+    category = st.selectbox(
+        "Tema",
+        ['general', 'balance', 'risks', 'growth', 'valuation', 'management'],
+        format_func=lambda x: {
+            'general': '📋 General',
+            'balance': '📊 Balance Sheet',
+            'risks': '⚠️ Riesgos',
+            'growth': '🚀 Crecimiento',
+            'valuation': '💰 Valoración',
+            'management': '👔 Management'
+        }.get(x, x)
+    )
+    
+    # Mostrar 6 preguntas de la categoría seleccionada
+    questions = SUGGESTED_QUESTIONS.get(category, SUGGESTED_QUESTIONS['general'])
+    
+    # Preguntas dinámicas basadas en el ticker actual
+    if ticker and ticker != "AAPL":
+        dynamic_questions = [
+            f"¿Cuáles son los principales riesgos de {ticker}?",
+            f"¿Cómo es el moat competitivo de {ticker}?",
+            f"¿Cuál es el guidance de {ticker} para este año?",
+        ]
+        questions = dynamic_questions + list(questions)
+    
+    # Mostrar en 2 filas de 3 columnas
+    row1 = st.columns(3)
+    for i, q in enumerate(questions[:3]):
+        if row1[i].button(q[:50] + "..." if len(q) > 50 else q, key=f"q_{i}"):
+            st.session_state['mq'] = q
+    
+    row2 = st.columns(3)
+    for i, q in enumerate(questions[3:6]):
+        if row2[i].button(q[:50] + "..." if len(q) > 50 else q, key=f"q2_{i}"):
             st.session_state['mq'] = q
     
     question = st.text_input("Tu pregunta:", st.session_state.get('mq', ''))
@@ -1403,31 +1530,35 @@ with tabs[11]:
                 bear = analyzed.metrics.get('bear_case', 'No disponible')
                 st.error(bear if bear else "No disponible")
             
-            # Secciones del documento
+            # Secciones del documento con explicaciones
             st.markdown("---")
             st.markdown("### 📑 Secciones del Documento")
             
             sec_tabs = st.tabs(["Business", "Risk Factors", "MD&A", "Financials"])
             
             with sec_tabs[0]:
+                st.caption("📋 **Item 1: Business** - Describe qué hace la empresa, sus productos, mercados y competencia. Fundamental para entender el modelo de negocio.")
                 if analyzed.business_description:
                     st.text_area("Business Description", analyzed.business_description[:5000], height=300)
                 else:
                     st.info("Sección no encontrada")
             
             with sec_tabs[1]:
+                st.caption("⚠️ **Item 1A: Risk Factors** - Lista de riesgos materiales que podrían afectar al negocio. Busca aquí litigios, dependencia de clientes o riesgos regulatorios.")
                 if analyzed.risk_factors:
                     st.text_area("Risk Factors", analyzed.risk_factors[:5000], height=300)
                 else:
                     st.info("Sección no encontrada")
             
             with sec_tabs[2]:
+                st.caption("📊 **Item 7: MD&A** (Management Discussion & Analysis) - La gerencia explica los resultados financieros con sus propias palabras. Clave para entender el 'por qué' de los números.")
                 if analyzed.md_and_a:
                     st.text_area("Management Discussion & Analysis", analyzed.md_and_a[:5000], height=300)
                 else:
                     st.info("Sección no encontrada")
             
             with sec_tabs[3]:
+                st.caption("💰 **Item 8: Financial Statements** - Los estados financieros auditados (Balance Sheet, Income Statement, Cash Flow).")
                 if analyzed.financial_statements:
                     st.text_area("Financial Statements", analyzed.financial_statements[:5000], height=300)
                 else:
@@ -1468,12 +1599,29 @@ FECHA: {analyzed.filing_date}
                     """
                     
                     # Usar el nuevo método ingest_text
+                    filename = f"{analyzed.ticker}_{analyzed.form_type}_{analyzed.filing_date}.txt"
                     n_chunks = st.session_state.oraculo.ingest_text(
                         content, 
-                        filename=f"{analyzed.ticker}_{analyzed.form_type}_{analyzed.filing_date}.txt"
+                        filename=filename
                     )
                     
-                    st.success(f"✅ Documento indexado ({n_chunks} chunks). Ahora el Comité y el Oracle tienen acceso a este conocimiento.")
+                    # ACTUALIZAR ESTADO DE DOCUMENTO ACTIVO
+                    doc_display_name = f"{analyzed.ticker} - {analyzed.form_type} ({analyzed.filing_date})"
+                    st.session_state.active_doc_name = doc_display_name
+                    
+                    # Crear estructura dummy para que los indicadores del sidebar funcionen
+                    from services.oracle import DocumentStructure
+                    st.session_state.doc_structure = DocumentStructure(
+                        filename=filename,
+                        num_chunks=n_chunks,
+                        has_balance_sheet=True if analyzed.financial_statements else False,
+                        has_income_statement=True if analyzed.financial_statements else False,
+                        has_cash_flow=True if analyzed.financial_statements else False,
+                        has_risk_factors=True if analyzed.risk_factors else False,
+                        has_mda=True if analyzed.md_and_a else False
+                    )
+                    
+                    st.success(f"✅ Documento indexado ({n_chunks} chunks). Ahora es el DOCUMENTO ACTIVO para el Comité y el Oracle.")
     
     else:
         # Instrucciones iniciales

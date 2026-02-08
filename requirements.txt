@@ -20,6 +20,12 @@ openai>=1.10.0
 # === VECTOR STORE ===
 faiss-cpu>=1.7.4
 
+# === FINANCE ===
+PyPortfolioOpt>=1.5.0
+scipy>=1.10.0
+cvxpy>=1.3.0
+faiss-cpu>=1.7.4
+
 # === DOCUMENT PROCESSING ===
 pdfplumber>=0.10.0
 beautifulsoup4>=4.12.0
