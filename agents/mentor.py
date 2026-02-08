@@ -18,10 +18,10 @@ class MentorAgent:
     """Agente profesor para educación financiera."""
     
     def __init__(self):
-        self._llm = ChatOpenAI(
-            model=MODELS.fast_model,
-            temperature=0.3
-        )
+        # Mentor usa modelo de razonamiento/premium para mejores explicaciones
+        from services.llm_factory import LLMFactory
+        # Provider 'reasoning' mapea a DeepSeek R1 (Opción B) o Claude (Opción A)
+        self._llm = LLMFactory.create(provider="reasoning", temperature=0.3)
     
     def explain(self, question: str, context: str = "") -> str:
         """

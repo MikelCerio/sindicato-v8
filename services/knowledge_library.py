@@ -77,9 +77,8 @@ class KnowledgeLibrary:
         """Lazy loading de embeddings."""
         if self._embeddings is None:
             try:
-                from langchain_openai import OpenAIEmbeddings
-                from config import MODELS
-                self._embeddings = OpenAIEmbeddings(model=MODELS.embedding_model)
+                from services.llm_factory import LLMFactory
+                self._embeddings = LLMFactory.create_embeddings()
             except Exception as e:
                 logger.error(f"Error cargando embeddings: {e}")
         return self._embeddings
@@ -173,7 +172,10 @@ class KnowledgeLibrary:
         import tempfile
         from langchain.text_splitter import RecursiveCharacterTextSplitter
         from langchain_community.vectorstores import FAISS
-        from langchain.schema import Document
+        try:
+            from langchain_core.documents import Document
+        except ImportError:
+            from langchain.schema import Document
         
         filename = file.name
         topics = topics or []
@@ -236,15 +238,20 @@ class KnowledgeLibrary:
             )
             self._save_metadata()
             
-            # Limpiar temporal
             os.unlink(tmp_path)
             
             logger.info(f"Libro '{title}' añadido con {len(chunks)} chunks")
             return len(chunks), f"✅ '{title}' añadido con {len(chunks)} fragmentos."
             
         except Exception as e:
+            error_msg = str(e)
+            if "insufficient_quota" in error_msg:
+                return 0, "❌ Error de Cuota OpenAI: Has superado tu límite de facturación. Revisa https://platform.openai.com/account/billing"
+            if "RateLimitError" in error_msg:
+                return 0, "❌ Error de Rate Limit: Demasiadas peticiones seguidas. Espera unos segundos."
+                
             logger.error(f"Error añadiendo libro: {e}")
-            return 0, f"❌ Error: {str(e)}"
+            return 0, f"❌ Error técnico: {error_msg[:200]}..."
     
     def _extract_text(self, file_path: str, filename: str) -> str:
         """Extrae texto de diferentes formatos."""
@@ -523,6 +530,62 @@ class KnowledgeLibrary:
         
         self._save_metadata()
         logger.info("Biblioteca limpiada")
+
+    def get_suggested_questions(self, num_questions: int = 5) -> List[str]:
+        """
+        Genera preguntas sugeridas basadas en el contenido de la biblioteca.
+        """
+        try:
+            from langchain_openai import ChatOpenAI
+            try:
+                from langchain_core.messages import HumanMessage, SystemMessage
+            except ImportError:
+                from langchain.schema import HumanMessage, SystemMessage
+            
+            if not self._books:
+                return ["¿Qué es el value investing?", "¿Cómo analizar un balance?", "¿Qué es el margen de seguridad?"]
+            
+            # Seleccionar libros al azar para inspirar preguntas
+            import random
+            book_titles = [info['title'] for info in self._books.values()]
+            if len(book_titles) > 5:
+                sampled_books = random.sample(book_titles, 5)
+            else:
+                sampled_books = book_titles
+                
+            books_str = ", ".join(sampled_books)
+            
+            # Usar modelo de razonamiento (DeepSeek R1) para preguntas creativas y profundas
+            from services.llm_factory import LLMFactory
+            llm = LLMFactory.create(provider="reasoning", temperature=0.7)
+            
+            prompt = f"""
+            Eres un bibliotecario experto en inversiones. Tu biblioteca contiene libros como: {books_str}.
+            
+            Genera {num_questions} preguntas interesantes y diversas que un inversor podría hacerle a esta biblioteca para extraer sabiduría de estos libros específicos.
+            
+            Las preguntas deben ser:
+            1. Profundas y reflexivas (no solo datos básicos).
+            2. Variadas (sobre estrategia, psicología, análisis, historia).
+            3. Específicas para el tipo de libros listados (ej: si hay libros de Buffett, preguntar sobre moat; si hay de trading, sobre momentum).
+            
+            Formato: Una pregunta por línea, sin números ni guiones.
+            Ejemplo:
+            ¿Qué opina Munger sobre la diversificación?
+            ¿Cómo identificar un foso económico duradero?
+            """
+            
+            response = llm.invoke([
+                SystemMessage(content="Eres un asistente experto en finanzas e inversiones."),
+                HumanMessage(content=prompt)
+            ])
+            
+            questions = [q.strip().lstrip('- ').lstrip('1234567890. ') for q in response.content.split('\n') if q.strip()]
+            return questions[:num_questions]
+            
+        except Exception as e:
+            logger.error(f"Error generando preguntas sugeridas: {e}")
+            return ["¿Cuál es el principio más importante de la inversión?", "¿Cómo evaluar la directiva?", "¿Cuándo vender una acción?"]
 
 
 # ============================================================================

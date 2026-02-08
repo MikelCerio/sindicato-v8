@@ -11,6 +11,20 @@ Features:
 """
 
 import streamlit as st
+import threading
+import signal
+
+# --- FIX: PATCH SIGNAL ON NON-MAIN THREAD (Python 3.13+) ---
+# Evita crash en librerías (CrewAI, LangChain) que intentan registrar señales en hilos secundarios
+if threading.current_thread() is not threading.main_thread():
+    original_signal = signal.signal
+    def safe_signal(signalnum, handler):
+        try:
+            return original_signal(signalnum, handler)
+        except ValueError:
+            pass # Ignorar error silenciosamente
+    signal.signal = safe_signal
+
 from datetime import datetime
 import pandas as pd
 import plotly.express as px
@@ -321,26 +335,44 @@ if st.session_state.debate_raw:
 st.markdown("---")
 
 # Tabs (estructura temporal - pendiente reorganización UX)
-tabs = st.tabs([
-    "📊 DATOS",
-    "🧠 OPENBB",
-    "🕵️ DESCUBRIR",
-    "📈 GRÁFICOS", 
-    "🔄 COMPARAR",
-    "⚖️ OPTIMIZER",
-    "🦈 COMITÉ",
-    "⚖️ VEREDICTO",
-    "📚 BIBLIOTECA",
-    "👨‍🏫 MENTOR",
-    "📂 DOCS",
-    "📄 SEC"
-])
+# Tabs Reorganizados por Flujo de Trabajo Lógico
+tab_names = [
+    "🕵️ DESCUBRIR",   # 0: Idea Generation
+    "📊 DATOS",       # 1: Overview
+    "📈 GRÁFICOS",    # 2: Technical Check
+    "📄 SEC 10-K",    # 3: Deep Dive (Critical)
+    "📂 DOCS",        # 4: Extra Context
+    "👨🏫 MENTOR",     # 5: Q&A / Learning
+    "📚 BIBLIOTECA",  # 6: Wisdom / Philosophy
+    "🔄 COMPARAR",    # 7: Relative Value
+    "🦈 COMITÉ",      # 8: The Debate
+    "⚖️ VEREDICTO",   # 9: The Decision
+    "⚖️ OPTIMIZER",   # 10: Sizing / Execution
+    "🧠 OPENBB"       # 11: Advanced Data (Optional)
+]
+
+tabs = st.tabs(tab_names)
+
+(
+    tab_descubrir, 
+    tab_datos, 
+    tab_graficos, 
+    tab_sec, 
+    tab_docs, 
+    tab_mentor, 
+    tab_biblioteca, 
+    tab_comparar, 
+    tab_comite, 
+    tab_veredicto, 
+    tab_optimizer, 
+    tab_openbb
+) = tabs
 
 # ============================================================================
 # TAB 0: DATOS - Vista General (Enhanced)
 # ============================================================================
 
-with tabs[0]:
+with tab_datos:
     st.header(f"📊 {ticker} - Overview")
     
     # === ROW 1: Fundamentals + Sentiment ===
@@ -613,7 +645,7 @@ with tabs[0]:
 # TAB 2: OPENBB DEEP DIVE
 # ============================================================================
 
-with tabs[1]:
+with tab_openbb:
     st.header(f"🧠 {ticker} - Deep Dive Institucional")
     st.caption("Datos profesionales via OpenBB Platform")
     
@@ -712,7 +744,7 @@ with tabs[1]:
 # TAB 3: DESCUBRIR (SCREENER)
 # ============================================================================
 
-with tabs[2]:
+with tab_descubrir:
     st.header(f"🕵️ Radar de Oportunidades: Sector {ticker}")
     
     st.info("""
@@ -792,7 +824,7 @@ with tabs[2]:
 # TAB 4: GRÁFICOS
 # ============================================================================
 
-with tabs[3]:
+with tab_graficos:
     st.header(f"📈 {ticker} - Gráficos")
     
     period = st.selectbox(
@@ -822,7 +854,7 @@ with tabs[3]:
 # TAB 5: COMPARAR
 # ============================================================================
 
-with tabs[4]:
+with tab_comparar:
     st.header("🔄 Comparativa de Tickers")
     
     tickers_input = st.text_input("Tickers (separados por coma)", "AAPL, MSFT, GOOGL, TSLA")
@@ -876,7 +908,7 @@ with tabs[4]:
 # TAB 6: OPTIMIZER
 # ============================================================================
 
-with tabs[5]:
+with tab_optimizer:
     st.header("⚖️ Portfolio Optimizer (Markowitz)")
     st.caption("Optimización científica usando Modern Portfolio Theory")
     
@@ -996,7 +1028,7 @@ with tabs[5]:
 # TAB 6: COMITÉ
 # ============================================================================
 
-with tabs[6]:  # COMITÉ
+with tab_comite:  # COMITÉ
     st.header("🦈 Auditoría Institucional")
     st.caption(f"Macro: {macro.brief}")
     
@@ -1139,7 +1171,7 @@ with tabs[6]:  # COMITÉ
 # TAB 8: VEREDICTO
 # ============================================================================
 
-with tabs[7]:
+with tab_veredicto:
     st.header("⚖️ Veredicto Final")
     
     if not st.session_state.debate_raw:
@@ -1199,9 +1231,12 @@ with tabs[7]:
                 col_dl, col_info = st.columns([1, 2])
                 
                 with col_dl:
-                     st.markdown(
-                        st.session_state.renderer.get_download_link(html_report, f"{ticker}_Investment_Memo"),
-                        unsafe_allow_html=True
+                     st.download_button(
+                        label="📄 Descargar Reporte HTML",
+                        data=html_report,
+                        file_name=f"{ticker}_Investment_Memo.html",
+                        mime="text/html",
+                        use_container_width=True
                     )
                 
                 with col_info:
@@ -1215,7 +1250,7 @@ with tabs[7]:
 # TAB 9: BIBLIOTECA
 # ============================================================================
 
-with tabs[8]:
+with tab_biblioteca:
     st.header("📚 Biblioteca de Sabiduría")
     st.caption("Sube libros de inversión para enriquecer el análisis de la IA")
     
@@ -1245,6 +1280,23 @@ with tabs[8]:
         books = st.session_state.library.books
         
         if books:
+            # === GENERADOR DE PREGUNTAS ===
+            if st.button("🎲 Testear Biblioteca (Generar preguntas sobre tus libros)", use_container_width=True):
+                with st.spinner("Leyendo títulos y generando desafío..."):
+                    questions = st.session_state.library.get_suggested_questions()
+                    st.session_state.library_quiz = questions
+                    st.rerun() # Forzar actualización inmediata
+            
+            if 'library_quiz' in st.session_state and st.session_state.library_quiz:
+                st.info("💡 Preguntas sugeridas para explorar tu biblioteca:")
+                for i, q in enumerate(st.session_state.library_quiz):
+                    # Al hacer clic, enviar al buscador de abajo y ejecutar
+                    if st.button(f"❓ {q}", key=f"lib_q_{i}", use_container_width=True):
+                        st.session_state.library_search_query = q
+                        st.rerun()
+            
+            st.markdown("---")
+            
             for book in books:
                 with st.expander(f"📕 {book.title} - {book.author}"):
                     st.write(f"**Chunks:** {book.num_chunks}")
@@ -1261,7 +1313,16 @@ with tabs[8]:
     st.markdown("---")
     st.subheader("🔍 Buscar en la Biblioteca")
     
-    search_query = st.text_input("¿Qué quieres saber de los grandes inversores?")
+    # Si viene de una pregunta sugerida, la usamos
+    default_q = st.session_state.get('library_search_query', '')
+    
+    # Input de búsqueda
+    search_query = st.text_input("Pregunta a tus libros:", value=default_q)
+    
+    # Limpiar estado para permitir nueva búsqueda manual limpia la próxima vez
+    if 'library_search_query' in st.session_state:
+        del st.session_state['library_search_query']
+        
     if search_query:
         results = st.session_state.library.search(search_query, k=3)
         
@@ -1281,7 +1342,7 @@ with tabs[8]:
 # TAB 10: MENTOR
 # ============================================================================
 
-with tabs[9]:
+with tab_mentor:
     st.header("👨🏫 Learning Oracle")
     
     # Categorías de preguntas
@@ -1302,10 +1363,23 @@ with tabs[9]:
     )
     
     # Mostrar 6 preguntas de la categoría seleccionada
+    # Mostrar 6 preguntas de la categoría seleccionada
     questions = SUGGESTED_QUESTIONS.get(category, SUGGESTED_QUESTIONS['general'])
     
-    # Preguntas dinámicas basadas en el ticker actual
-    if ticker and ticker != "AAPL":
+    # Preguntas dinámicas inteligentes
+    doc_info = st.session_state.get('active_doc_name', '')
+    
+    if doc_info and ('10-K' in doc_info or '10-Q' in doc_info):
+        # Si hay un filing cargado, preguntar sobre el filing
+        ticker_extract = doc_info.split()[0] if ' ' in doc_info else ticker
+        dynamic_questions = [
+            f"¿Qué dice este documento sobre la liquidez de {ticker_extract}?",
+            f"¿Cuáles son los riesgos legales más graves mencionados?",
+            f"Resumen de la discusión de la gerencia (MD&A)",
+        ]
+        questions = dynamic_questions + list(questions)
+    elif ticker and ticker != "AAPL" and ticker != "TSLA":
+        # Si no hay documento pero sí ticker seleccionado (y no son los default)
         dynamic_questions = [
             f"¿Cuáles son los principales riesgos de {ticker}?",
             f"¿Cómo es el moat competitivo de {ticker}?",
@@ -1327,6 +1401,8 @@ with tabs[9]:
     question = st.text_input("Tu pregunta:", st.session_state.get('mq', ''))
     
     if question and st.button("🎓 Consultar"):
+        doc_src = st.session_state.get('active_doc_name', 'Ninguno')
+        st.info(f"🔎 Analizando en: **{doc_src}** + **Biblioteca de Sabiduría**")
         with st.spinner("El mentor está pensando..."):
             # Get context from doc if available
             doc_ctx = ""
@@ -1355,7 +1431,7 @@ with tabs[9]:
 # TAB 11: DOCS
 # ============================================================================
 
-with tabs[10]:
+with tab_docs:
     st.header("📂 Documentos 10-K/10-Q")
     
     c1, c2 = st.columns(2)
@@ -1403,7 +1479,7 @@ with tabs[10]:
 # TAB 12: SEC FILINGS ANALYZER (FinRobot-inspired)
 # ============================================================================
 
-with tabs[11]:
+with tab_sec:
     st.header("📄 SEC Filings Analyzer")
     st.caption("Análisis automático de 10-K, 10-Q y otros documentos SEC • Inspirado en FinRobot")
     

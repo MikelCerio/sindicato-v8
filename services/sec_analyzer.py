@@ -352,9 +352,14 @@ class SECAnalyzer:
         """
         try:
             from langchain_openai import ChatOpenAI
-            from langchain.schema import HumanMessage, SystemMessage
+            from services.llm_factory import LLMFactory
+            try:
+                from langchain_core.messages import HumanMessage, SystemMessage
+            except ImportError:
+                from langchain.schema import HumanMessage, SystemMessage
             
-            llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
+            # Usar modelo con contexto largo (Kimi/Gemini Flash)
+            llm = LLMFactory.create(provider="context", temperature=0.1)
             
             # Preparar contexto
             context_parts = []
@@ -423,8 +428,14 @@ FORMATO DE RESPUESTA (usa exactamente estos headers):
             return filing
             
         except Exception as e:
-            logger.error(f"Error en análisis LLM: {e}")
-            filing.executive_summary = f"Error en análisis: {str(e)}"
+            error_msg = str(e)
+            if "insufficient_quota" in error_msg:
+                filing.executive_summary = "❌ Error de Cuota OpenAI: Has superado tu límite de facturación. El análisis automático no está disponible. Revisa platform.openai.com."
+                filing.red_flags = ["Error de API - Sin análisis"]
+                filing.key_insights = ["Error de API - Sin análisis"]
+            else:
+                logger.error(f"Error en análisis LLM: {e}")
+                filing.executive_summary = f"Error en análisis: {error_msg[:200]}"
             return filing
     
     def _extract_section(self, text: str, header: str) -> str:
@@ -475,9 +486,14 @@ FORMATO DE RESPUESTA (usa exactamente estos headers):
         """
         try:
             from langchain_openai import ChatOpenAI
-            from langchain.schema import HumanMessage, SystemMessage
+            from services.llm_factory import LLMFactory
+            try:
+                from langchain_core.messages import HumanMessage, SystemMessage
+            except ImportError:
+                from langchain.schema import HumanMessage, SystemMessage
             
-            llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
+            # Usar modelo de chat rápido (DeepSeek V3) para comparación
+            llm = LLMFactory.create(provider="chat", temperature=0.1)
             
             # Comparar Risk Factors
             current_risks = current.risk_factors[:5000] if current.risk_factors else "No disponible"

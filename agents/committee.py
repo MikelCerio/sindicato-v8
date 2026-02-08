@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from crewai import Agent, Task, Crew
 from langchain_openai import ChatOpenAI
+from services.llm_factory import LLMFactory
 
 from config import MODELS
 from prompts import AGENT_PROMPTS, SYSTEM_PROMPT_BASE, SYSTEM_PROMPT_SMALL_CAP
@@ -42,10 +43,9 @@ class InvestmentCommittee:
     @property
     def llm(self) -> ChatOpenAI:
         if self._llm is None:
-            self._llm = ChatOpenAI(
-                model=MODELS.standard_model,
-                temperature=self.DEBATE_TEMPERATURE  # Usar temp específica para debates
-            )
+            # Agentes analistas usan modelo rápido/barato (DeepSeek V3 / Llama 3)
+            # Provider 'chat' mapea a DeepSeek V3 en LLMFactory
+            self._llm = LLMFactory.create(provider="chat", temperature=self.DEBATE_TEMPERATURE)
         return self._llm
     
     def run_audit(self, ticker: str, macro_brief: str, context: Dict[str, str], mode: str = "standard") -> AuditResult:
@@ -249,11 +249,15 @@ class InvestmentCommittee:
         """
         logger.info(f"Emitiendo veredicto para {ticker}")
         
+        # CIO usa modelo Potente (DeepSeek R1 / Claude 3 Opus)
+        # Provider 'reasoning' mapea a DeepSeek R1 (Opción B: Calidad/Precio)
+        llm_cio = LLMFactory.create(provider="reasoning", temperature=0.1)
+        
         cio = Agent(
             role='Chief Investment Officer',
             goal='Decisión final de inversión',
             backstory=AGENT_PROMPTS['cio'],
-            llm=self.llm,
+            llm=llm_cio,
             verbose=False
         )
         
@@ -261,7 +265,7 @@ class InvestmentCommittee:
             role='Portfolio Manager',
             goal='Sizing y asignación de capital',
             backstory=AGENT_PROMPTS['portfolio_manager'],
-            llm=self.llm,
+            llm=llm_cio, # PM también usa modelo potente
             verbose=False
         )
         

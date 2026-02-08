@@ -546,10 +546,27 @@ def initialize() -> None:
         os.environ['OPENAI_API_KEY'] = openai_key
     
     # Verificar que tenemos API key
-    if not os.getenv('OPENAI_API_KEY'):
+    if not os.getenv('OPENAI_API_KEY') and not os.getenv('OPENROUTER_API_KEY'):
         import warnings
         warnings.warn(
-            "⚠️ OPENAI_API_KEY no encontrada. "
+            "⚠️ NI OPENAI_API_KEY NI OPENROUTER_API_KEY encontradas. "
             "Configúrala en: Streamlit secrets, .env file, o variable de entorno."
         )
+
+    # 3. Cargar OPENROUTER_API_KEY (Si existe)
+    if not os.getenv('OPENROUTER_API_KEY'):
+        try:
+            openrouter_key = None
+            if hasattr(st, 'secrets') and 'OPENROUTER_API_KEY' in st.secrets:
+                openrouter_key = st.secrets['OPENROUTER_API_KEY']
+            
+            if openrouter_key:
+                os.environ['OPENROUTER_API_KEY'] = openrouter_key
+        except:
+            pass
+
+# Globals for easy access (populated after import via os.environ if set externally, or via initialize)
+IS_OPENROUTER = bool(os.getenv('OPENROUTER_API_KEY'))
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 

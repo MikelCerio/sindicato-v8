@@ -92,9 +92,8 @@ class OraculoV8:
     def embeddings(self) -> OpenAIEmbeddings:
         """Lazy loading de embeddings"""
         if self._embeddings is None:
-            self._embeddings = OpenAIEmbeddings(
-                model=MODELS.embedding_model
-            )
+            from services.llm_factory import LLMFactory
+            self._embeddings = LLMFactory.create_embeddings()
         return self._embeddings
     
     @property

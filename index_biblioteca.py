@@ -29,7 +29,10 @@ try:
     from langchain_openai import OpenAIEmbeddings
     from langchain_community.vectorstores import FAISS
     from langchain.text_splitter import RecursiveCharacterTextSplitter
-    from langchain.schema import Document
+    try:
+        from langchain_core.documents import Document
+    except ImportError:
+        from langchain.schema import Document
     import pdfplumber
     from bs4 import BeautifulSoup
     print("✅ Dependencias cargadas correctamente")
