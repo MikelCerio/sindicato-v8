@@ -20,45 +20,91 @@ class ScreenerService:
     
     def get_similar_companies(self, ticker: str) -> List[str]:
         """
-        Busca empresas similares/competidoras.
+        Busca empresas del MISMO SECTOR e INDUSTRIA.
         
         Args:
             ticker: Símbolo de la empresa base
         
         Returns:
-            Lista de tickers similares
+            Lista de tickers del mismo sector
         """
         try:
             logger.info(f"Buscando competidores de {ticker}")
             
-            # Intentar obtener info de la empresa
             stock = yf.Ticker(ticker)
             info = stock.info
             
-            # Buscar en el sector/industria
             sector = info.get('sector', '')
             industry = info.get('industry', '')
             
             logger.info(f"{ticker} - Sector: {sector}, Industry: {industry}")
             
-            # Lista manual de competidores conocidos por sector
-            # (En producción, esto vendría de una API o base de datos)
-            sector_map = {
-                'Technology': ['AAPL', 'MSFT', 'GOOGL', 'META', 'NVDA', 'AMD', 'INTC'],
-                'Automotive': ['TSLA', 'F', 'GM', 'TM', 'RIVN', 'LCID'],
-                'Financial Services': ['JPM', 'BAC', 'WFC', 'C', 'GS', 'MS'],
-                'Healthcare': ['JNJ', 'PFE', 'UNH', 'ABBV', 'MRK', 'TMO'],
-                'Consumer Cyclical': ['AMZN', 'HD', 'NKE', 'SBUX', 'MCD'],
-                'Energy': ['XOM', 'CVX', 'COP', 'SLB', 'EOG'],
+            # Mapa expandido de competidores por sector/industria
+            # Clave: (sector, industry parcial) -> lista de competidores
+            industry_map = {
+                # Autos / EV
+                ('Consumer Cyclical', 'Auto'): ['TSLA', 'F', 'GM', 'TM', 'RIVN', 'LCID', 'HMC', 'STLA'],
+                ('Consumer Cyclical', 'Electric'): ['TSLA', 'RIVN', 'LCID', 'NIO', 'XPEV', 'LI'],
+                
+                # Tech - Software
+                ('Technology', 'Software'): ['MSFT', 'ORCL', 'CRM', 'ADBE', 'NOW', 'INTU', 'SAP'],
+                ('Technology', 'Hardware'): ['AAPL', 'HPE', 'DELL', 'LOGI'],
+                ('Technology', 'Semiconduct'): ['NVDA', 'AMD', 'INTC', 'AVGO', 'QCOM', 'TSM', 'ASML'],
+                ('Technology', 'Internet'): ['GOOGL', 'META', 'SNAP', 'PINS', 'TWTR'],
+                ('Technology', ''): ['AAPL', 'MSFT', 'GOOGL', 'META', 'NVDA', 'AMD', 'INTC'],
+                
+                # Finance
+                ('Financial Services', 'Bank'): ['JPM', 'BAC', 'WFC', 'C', 'USB', 'PNC'],
+                ('Financial Services', 'Capital'): ['GS', 'MS', 'BLK', 'SCHW', 'HOOD'],
+                ('Financial Services', 'Insurance'): ['BRK-B', 'MET', 'AIG', 'PRU', 'ALL'],
+                ('Financial Services', ''): ['JPM', 'BAC', 'WFC', 'GS', 'MS', 'BLK'],
+                
+                # Healthcare
+                ('Healthcare', 'Pharma'): ['JNJ', 'PFE', 'MRK', 'ABBV', 'LLY', 'NVO'],
+                ('Healthcare', 'Biotech'): ['AMGN', 'GILD', 'BIIB', 'MRNA', 'VRTX'],
+                ('Healthcare', 'Device'): ['MDT', 'ABT', 'SYK', 'ISRG', 'BSX'],
+                ('Healthcare', ''): ['JNJ', 'PFE', 'UNH', 'ABBV', 'MRK', 'TMO'],
+                
+                # Consumer
+                ('Consumer Cyclical', 'Retail'): ['AMZN', 'WMT', 'TGT', 'COST', 'HD', 'LOW'],
+                ('Consumer Cyclical', 'Restaurant'): ['MCD', 'SBUX', 'CMG', 'YUM', 'DRI'],
+                ('Consumer Cyclical', 'Apparel'): ['NKE', 'LULU', 'UA', 'VFC', 'RL'],
+                ('Consumer Cyclical', ''): ['AMZN', 'HD', 'NKE', 'SBUX', 'MCD'],
+                
+                ('Consumer Defensive', ''): ['PG', 'KO', 'PEP', 'WMT', 'COST', 'CL'],
+                
+                # Energy
+                ('Energy', ''): ['XOM', 'CVX', 'COP', 'SLB', 'EOG', 'OXY', 'BP'],
+                
+                # Communication
+                ('Communication Services', ''): ['GOOGL', 'META', 'DIS', 'NFLX', 'CMCSA', 'T', 'VZ'],
+                
+                # Industrial
+                ('Industrials', ''): ['CAT', 'DE', 'BA', 'HON', 'UPS', 'GE', 'RTX'],
+                
+                # Real Estate
+                ('Real Estate', ''): ['AMT', 'PLD', 'EQIX', 'SPG', 'O'],
             }
             
-            # Obtener lista de competidores del sector
-            candidates = sector_map.get(sector, [])
+            # Buscar coincidencia exacta primero (sector + industria parcial)
+            candidates = []
+            for (map_sector, map_industry), tickers_list in industry_map.items():
+                if sector == map_sector:
+                    if map_industry == '' or (industry and map_industry.lower() in industry.lower()):
+                        candidates = tickers_list
+                        break
             
-            # Filtrar el ticker original
+            # Fallback: Solo por sector
+            if not candidates:
+                for (map_sector, map_industry), tickers_list in industry_map.items():
+                    if sector == map_sector and map_industry == '':
+                        candidates = tickers_list
+                        break
+            
+            # Filtrar el ticker original y limitar
             candidates = [t for t in candidates if t.upper() != ticker.upper()]
             
-            # Limitar a 8 para no saturar
+            logger.info(f"Competidores encontrados para {ticker}: {candidates[:8]}")
             return candidates[:8]
             
         except Exception as e:

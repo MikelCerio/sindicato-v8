@@ -294,20 +294,41 @@ class KnowledgeLibrary:
                 return ""
     
     def _extract_html(self, file_path: str) -> str:
-        """Extrae texto de HTML."""
+        """Extrae texto de HTML con soporte para múltiples encodings."""
+        from bs4 import BeautifulSoup
+        
+        # Probar múltiples encodings (las Cartas de Buffett suelen ser cp1252/latin-1)
+        encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+        content = None
+        
+        for encoding in encodings:
+            try:
+                with open(file_path, 'r', encoding=encoding) as f:
+                    content = f.read()
+                break  # Si funciona, salimos del bucle
+            except (UnicodeDecodeError, LookupError):
+                continue
+        
+        # Último recurso: leer como bytes e ignorar errores
+        if content is None:
+            try:
+                with open(file_path, 'rb') as f:
+                    content = f.read().decode('utf-8', errors='ignore')
+            except Exception as e:
+                logger.error(f"Error leyendo HTML (todos los encodings fallaron): {e}")
+                return ""
+        
         try:
-            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(content, 'html.parser')
             
-            with open(file_path, 'r', encoding='utf-8') as f:
-                soup = BeautifulSoup(f.read(), 'html.parser')
-                
-                # Eliminar scripts y estilos
-                for tag in soup(['script', 'style', 'nav', 'footer']):
-                    tag.decompose()
-                
-                return soup.get_text(separator='\n', strip=True)
+            # Eliminar scripts y estilos
+            for tag in soup(['script', 'style', 'nav', 'footer', 'header']):
+                tag.decompose()
+            
+            text = soup.get_text(separator='\n', strip=True)
+            return text
         except Exception as e:
-            logger.error(f"Error extrayendo HTML: {e}")
+            logger.error(f"Error parseando HTML: {e}")
             return ""
     
     def _extract_epub(self, file_path: str) -> str:

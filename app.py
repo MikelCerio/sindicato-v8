@@ -1437,29 +1437,34 @@ with tabs[11]:
             st.markdown("---")
             if st.button("🧠 Indexar en Base de Conocimiento", key="index_sec"):
                 with st.spinner("Indexando filing..."):
-                    # Crear contenido para indexar
+                    # Crear contenido COMPLETO para indexar (límites aumentados)
+                    # Un 10-K típico tiene 100-200 páginas, necesitamos más contenido
                     content = f"""
-                    TIPO: {analyzed.form_type}
-                    TICKER: {analyzed.ticker}
-                    FECHA: {analyzed.filing_date}
-                    
-                    RESUMEN EJECUTIVO: 
-                    {analyzed.executive_summary}
-                    
-                    RED FLAGS:
-                    {str(analyzed.red_flags)}
-                    
-                    BUSINESS DESCRIPTION: 
-                    {analyzed.business_description[:10000] if analyzed.business_description else ''}
-                    
-                    RISK FACTORS: 
-                    {analyzed.risk_factors[:10000] if analyzed.risk_factors else ''}
-                    
-                    MD&A: 
-                    {analyzed.md_and_a[:10000] if analyzed.md_and_a else ''}
-                    
-                    FINANCIAL MENTIONS:
-                    {analyzed.metrics.get('full_analysis', '')}
+=== SEC FILING: {analyzed.form_type} ===
+TICKER: {analyzed.ticker}
+COMPANY: {analyzed.ticker}
+FECHA: {analyzed.filing_date}
+
+=== RESUMEN EJECUTIVO (AI) ===
+{analyzed.executive_summary}
+
+=== RED FLAGS DETECTADOS ===
+{chr(10).join(analyzed.red_flags) if isinstance(analyzed.red_flags, list) else str(analyzed.red_flags)}
+
+=== ITEM 1: BUSINESS DESCRIPTION ===
+{analyzed.business_description[:50000] if analyzed.business_description else 'No disponible'}
+
+=== ITEM 1A: RISK FACTORS ===
+{analyzed.risk_factors[:50000] if analyzed.risk_factors else 'No disponible'}
+
+=== ITEM 7: MANAGEMENT DISCUSSION & ANALYSIS ===
+{analyzed.md_and_a[:50000] if analyzed.md_and_a else 'No disponible'}
+
+=== ITEM 8: FINANCIAL STATEMENTS ===
+{analyzed.financial_statements[:30000] if analyzed.financial_statements else 'No disponible'}
+
+=== AI ANALYSIS ===
+{analyzed.metrics.get('full_analysis', '')}
                     """
                     
                     # Usar el nuevo método ingest_text
