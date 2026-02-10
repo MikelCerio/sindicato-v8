@@ -21,6 +21,27 @@ st.set_page_config(layout="wide", page_title="Sindicato v8 - Clean Arch")
 st.title("Sindicato v8: Arquitectura Limpia")
 st.markdown("---")
 
+# --- SIDEBAR CONFIG ---
+with st.sidebar:
+    st.header("🔑 Configuración")
+    
+    # Check if key is already in env
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+    
+    if api_key:
+        st.success("✅ API Key Configurada")
+    else:
+        st.warning("⚠️ Falta API Key")
+        user_key = st.text_input("Ingresa tu API Key:", type="password")
+        if user_key:
+            os.environ["OPENAI_API_KEY"] = user_key
+            os.environ["OPENROUTER_API_KEY"] = user_key # Set both just in case
+            st.rerun()
+            
+    st.divider()
+    st.info("Nueva Arquitectura Modular")
+
+
 tab1, tab2, tab3, tab4 = st.tabs(["1️⃣ EMPRESA", "2️⃣ CONTEXTO", "3️⃣ ANÁLISIS", "4️⃣ SÍNTESIS"])
 
 with tab1:
