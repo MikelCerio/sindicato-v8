@@ -48,6 +48,93 @@ class InvestmentCommittee:
             )
         return self._llm
     
+    def run_value_audit(self, ticker: str, macro_brief: str, context: str, mode: str = "standard") -> str:
+        """Ejecuta solo el Value Auditor"""
+        if mode == "small_cap":
+            prompt = SYSTEM_PROMPT_SMALL_CAP
+            role = "Alpha Value Auditor"
+            desc = f"""
+            TICKER: {ticker}
+            MACRO: {macro_brief}
+            DATA: {context}
+            
+            MISSION:
+            1. SKIN IN THE GAME: % Ownership
+            2. INSIDER TRANSACTIONS: Buying/Selling?
+            3. DEBT: Net Debt/EBITDA < 2x?
+            4. CAPITAL ALLOCATION: ROI?
+            """
+        else:
+            prompt = SYSTEM_PROMPT_BASE
+            role = "Institucional Value Auditor"
+            desc = f"""
+            TICKER: {ticker}
+            MACRO: {macro_brief}
+            DATA: {context}
+            
+            MISSION:
+            1. Total Debt & Cash
+            2. Calculate Net Debt
+            3. Debt/Equity & Interest Coverage
+            4. Goodwill check
+            """
+            
+        agent = Agent(role=role, goal="Forensic Analysis", backstory=AGENT_PROMPTS['forensic_auditor'] + "\n" + prompt, llm=self.llm, verbose=False)
+        task = Task(description=desc, agent=agent, expected_output="Audit Report")
+        return str(Crew(agents=[agent], tasks=[task], verbose=False).kickoff().raw)
+
+    def run_growth_audit(self, ticker: str, context: str, mode: str = "standard") -> str:
+        """Ejecuta solo el Growth Auditor"""
+        if mode == "small_cap":
+            prompt = SYSTEM_PROMPT_SMALL_CAP
+            role = "Alpha Growth Analyst"
+            desc = f"""
+            TICKER: {ticker}
+            DATA: {context}
+            
+            MISSION:
+            1. ROCE > 15%?
+            2. MOAT analysis
+            3. Niche/Monopoly check
+            """
+        else:
+            prompt = SYSTEM_PROMPT_BASE
+            role = "Institucional Growth Analyst"
+            desc = f"""
+            TICKER: {ticker}
+            DATA: {context}
+            
+            MISSION:
+            1. R&D Expenses
+            2. R&D/Revenue Ratio
+            3. Pipeline check
+            """
+            
+        agent = Agent(role=role, goal="Growth Analysis", backstory=AGENT_PROMPTS['growth_analyst'] + "\n" + prompt, llm=self.llm, verbose=False)
+        task = Task(description=desc, agent=agent, expected_output="Growth Report")
+        return str(Crew(agents=[agent], tasks=[task], verbose=False).kickoff().raw)
+
+    def run_risk_audit(self, ticker: str, macro_brief: str, context: str, mode: str = "standard") -> str:
+        """Ejecuta solo el Risk Auditor"""
+        prompt = SYSTEM_PROMPT_SMALL_CAP if mode == "small_cap" else SYSTEM_PROMPT_BASE
+        role = "Alpha Risk Hunter" if mode == "small_cap" else "Institucional Risk Hunter"
+        
+        desc = f"""
+        TICKER: {ticker}
+        MACRO: {macro_brief}
+        DATA: {context}
+        
+        MISSION:
+        1. Top 3 Severe Risks
+        2. Litigations?
+        3. Customer Concentration?
+        4. DEAL-BREAKERS?
+        """
+        
+        agent = Agent(role=role, goal="Risk Assessment", backstory=AGENT_PROMPTS['risk_hunter'] + "\n" + prompt, llm=self.llm, verbose=False)
+        task = Task(description=desc, agent=agent, expected_output="Risk Report")
+        return str(Crew(agents=[agent], tasks=[task], verbose=False).kickoff().raw)
+
     def run_audit(self, ticker: str, macro_brief: str, context: Dict[str, str], mode: str = "standard") -> AuditResult:
         """
         Ejecuta auditoría completa con los 3 analistas.

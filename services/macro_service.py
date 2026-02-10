@@ -91,14 +91,25 @@ class MacroService:
         """
         try:
             # 1. Treasuries (Curva de Tipos)
-            tnx = yf.Ticker("^TNX")  # 10Y
+            # 1. Treasuries (Curva de Tipos)
+            try:
+                tnx = yf.Ticker("^TNX")  # 10Y
+                t10y_hist = tnx.history(period="1d")
+                if t10y_hist.empty:
+                    raise ValueError("No data for ^TNX")
+                treasury_10y = t10y_hist['Close'].iloc[-1]
+            except:
+                logger.warning("Failed to fetch ^TNX, trying ^TYX (30Y) as proxy or fallback")
+                try:
+                    tyx = yf.Ticker("^TYX")
+                    t30y_hist = tyx.history(period="1d")
+                    treasury_10y = t30y_hist['Close'].iloc[-1] if not t30y_hist.empty else 4.0
+                except:
+                    treasury_10y = 4.0
+
             irx = yf.Ticker("^IRX")  # 13W (proxy 2Y)
-            
-            t10y_hist = tnx.history(period="1d")
             t2y_hist = irx.history(period="1d")
-            
-            treasury_10y = t10y_hist['Close'].iloc[-1] if not t10y_hist.empty else 4.0
-            treasury_2y = t2y_hist['Close'].iloc[-1] / 100 if not t2y_hist.empty else 4.0  # IRX está en basis points
+            treasury_2y = t2y_hist['Close'].iloc[-1] / 100 if not t2y_hist.empty else 4.0
             
             # Alternativa: Usar TYX para 30Y y calcular spread
             yield_spread = treasury_10y - treasury_2y

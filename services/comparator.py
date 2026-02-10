@@ -230,7 +230,7 @@ def render_comparison_tab():
     
     tickers = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
     
-    if len(tickers) >= 2 and st.button("🔍 Comparar", use_container_width=True):
+    if len(tickers) >= 2 and st.button("🔍 Comparar", width="stretch"):
         with st.spinner("Obteniendo datos..."):
             comparator = TickerComparator()
             result = comparator.compare(tickers)
@@ -248,16 +248,16 @@ def render_comparison_tab():
                 
                 # Tabla
                 st.subheader("📋 Tabla Comparativa")
-                st.dataframe(result.comparison_table, use_container_width=True)
+                st.dataframe(result.comparison_table, width="stretch")
                 
                 # Gráficos
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.plotly_chart(result.charts['radar'], use_container_width=True)
+                    st.plotly_chart(result.charts['radar'], width="stretch")
                 with col2:
-                    st.plotly_chart(result.charts['valuation'], use_container_width=True)
+                    st.plotly_chart(result.charts['valuation'], width="stretch")
                 
-                st.plotly_chart(result.charts['bars'], use_container_width=True)
+                st.plotly_chart(result.charts['bars'], width="stretch")
             else:
                 st.error("No se pudieron obtener datos para los tickers")
     elif len(tickers) < 2:

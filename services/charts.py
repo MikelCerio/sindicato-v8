@@ -283,7 +283,7 @@ def render_charts_section(ticker: str):
         # Candlestick
         candle_chart = chart_service.create_candlestick_chart(ticker, period)
         if candle_chart:
-            st.plotly_chart(candle_chart, use_container_width=True)
+            st.plotly_chart(candle_chart, width="stretch")
         else:
             st.error("No se pudo cargar el gráfico")
     
@@ -291,4 +291,4 @@ def render_charts_section(ticker: str):
         # Rendimiento
         perf_chart = chart_service.create_performance_chart(ticker, period)
         if perf_chart:
-            st.plotly_chart(perf_chart, use_container_width=True)
+            st.plotly_chart(perf_chart, width="stretch")
