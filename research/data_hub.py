@@ -35,6 +35,14 @@ SEC_BASE = "https://data.sec.gov"
 SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 
 
+class SECUnavailable(RuntimeError):
+    """La API de la SEC no responde (red, bloqueo o User-Agent rechazado)."""
+
+
+class NoMarketData(RuntimeError):
+    """No se ha podido descargar ningún dato de mercado para el ticker."""
+
+
 # ============================================================================
 # Utilidades
 # ============================================================================
@@ -50,10 +58,24 @@ def _ttl_cache(seconds: int = 900) -> Callable:
             if hit and now - hit[0] < seconds:
                 return hit[1]
             value = func(self, *args, **kwargs)
-            self._cache[key] = (now, value)
+            if not _is_failure(value):  # no cacheamos fallos: así se reintenta en la siguiente llamada
+                self._cache[key] = (now, value)
             return value
         return wrapper
     return decorator
+
+
+def _is_failure(value: Any) -> bool:
+    """Resultado vacío o de error (no se debe cachear)."""
+    if value is None:
+        return True
+    if isinstance(value, (pd.DataFrame, pd.Series)):
+        return value.empty
+    if isinstance(value, dict):
+        return not value or "error" in value
+    if isinstance(value, list):
+        return not value or (isinstance(value[0], dict) and "error" in value[0])
+    return False
 
 
 def _num(value: Any) -> Optional[float]:
@@ -391,16 +413,26 @@ class DataHub:
 
     # ----------------------------------------------------------------- SEC
     def _cik(self, ticker: str) -> Optional[str]:
+        """CIK de la SEC. Lanza SECUnavailable si la SEC no responde (para no confundirlo con 'no existe')."""
         if self._cik_map is None:
-            data = self._get_json(SEC_TICKERS_URL) or {}
+            data = self._get_json(SEC_TICKERS_URL)
+            if not data:
+                raise SECUnavailable("No se pudo conectar con la SEC")
             self._cik_map = {v["ticker"].upper(): str(v["cik_str"]).zfill(10) for v in data.values()
                              if isinstance(v, dict) and "ticker" in v}
         return self._cik_map.get(ticker.upper())
 
+    def has_market_data(self, ticker: str) -> bool:
+        """True si Yahoo devuelve al menos precio o estados financieros."""
+        return bool(self.quote(ticker).get("price")) or not self.financial_statement(ticker, "income").empty
+
     @_ttl_cache(3600)
     def sec_filings(self, ticker: str, forms: tuple = ("10-K", "10-Q", "8-K"), limit: int = 10) -> List[Dict[str, Any]]:
         """Últimos documentos oficiales presentados ante la SEC (solo empresas de EE.UU.)."""
-        cik = self._cik(ticker)
+        try:
+            cik = self._cik(ticker)
+        except SECUnavailable:
+            return [{"error": "SEC no disponible ahora mismo"}]
         if not cik:
             return []
         data = self._get_json(f"{SEC_BASE}/submissions/CIK{cik}.json")
@@ -427,7 +459,10 @@ class DataHub:
         Cifras anuales oficiales (XBRL de los 10-K). Útil para contrastar con Yahoo.
         Devuelve {concepto: [{"year":..., "value":...}, ...]}
         """
-        cik = self._cik(ticker)
+        try:
+            cik = self._cik(ticker)
+        except SECUnavailable:
+            return {"ticker": ticker.upper(), "error": "SEC no disponible ahora mismo"}
         if not cik:
             return {"ticker": ticker.upper(), "error": "Ticker sin CIK en la SEC (¿empresa no estadounidense?)"}
         data = self._get_json(f"{SEC_BASE}/api/xbrl/companyfacts/CIK{cik}.json")
@@ -486,5 +521,5 @@ class DataHub:
             balance=self.financial_statement(t, "balance"),
             cashflow=self.financial_statement(t, "cashflow"),
             news=self.news(t, limit=6),
-            filings=self.sec_filings(t, limit=5) if include_sec else [],
+            filings=[f for f in self.sec_filings(t, limit=5) if "error" not in f] if include_sec else [],
         )

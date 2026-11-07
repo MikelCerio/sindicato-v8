@@ -9,10 +9,10 @@ Módulos ligeros (sin Streamlit ni OpenBB):
 - report     → informe de análisis automático
 """
 
-from .data_hub import DataHub, CompanySnapshot
+from .data_hub import DataHub, CompanySnapshot, NoMarketData, SECUnavailable
 from .tools import ToolRegistry
 from .copilot import FinancialCopilot, CopilotReply
 from .report import EquityReportGenerator, EquityReport
 
-__all__ = ["DataHub", "CompanySnapshot", "ToolRegistry", "FinancialCopilot", "CopilotReply",
+__all__ = ["DataHub", "CompanySnapshot", "NoMarketData", "SECUnavailable", "ToolRegistry", "FinancialCopilot", "CopilotReply",
            "EquityReportGenerator", "EquityReport"]

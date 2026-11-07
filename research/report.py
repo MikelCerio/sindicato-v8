@@ -23,7 +23,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
-from .data_hub import CompanySnapshot, DataHub
+from .data_hub import CompanySnapshot, DataHub, NoMarketData
 from . import valuation
 from .tools import to_jsonable
 
@@ -127,6 +127,9 @@ class EquityReportGenerator:
         t = ticker.upper().strip()
 
         step("Descargando datos de mercado y estados financieros…", 0.1)
+        if not self.hub.has_market_data(t):
+            raise NoMarketData(f"No se han podido descargar datos de {t}. Revisa el ticker "
+                               f"(p.ej. ITX.MC para Inditex) o tu conexión con Yahoo Finance.")
         snap = self.hub.snapshot(t)
 
         step("Calculando valoración (DCF) y scores de calidad…", 0.4)
@@ -225,7 +228,8 @@ def _headline_metrics(s: CompanySnapshot, val: Dict, q: Dict) -> Dict[str, str]:
         "Valor DCF / acción": (f"{val['fair_value_per_share']:.2f} {cur} ({_pct(val.get('upside'))})"
                                if val.get("applicable") else "No aplicable"),
         "Crecimiento implícito en precio": _pct(val.get("implied_growth_at_price")) if val.get("applicable") else "n/d",
-        "Piotroski F-Score": f"{q['piotroski']['score']}/9 ({q['piotroski']['label']})",
+        "Piotroski F-Score": (f"{q['piotroski']['score']}/9 ({q['piotroski']['label']})"
+                              if q["piotroski"]["score"] is not None else "n/d"),
         "Altman Z": f"{q['altman_z']['score']} ({q['altman_z']['zone']})" if q["altman_z"]["score"] else "n/d",
         "Rentabilidad 1 año": _pct(s.performance.get("return_1y")),
         "Máx. caída 1 año": _pct(s.performance.get("max_drawdown_1y")),
@@ -290,7 +294,8 @@ def _rule_based_sections(s: CompanySnapshot, val: Dict, q: Dict) -> Dict[str, st
     elif pe is not None:
         bullets.append(f"- PER adelantado de {_x(pe)}.")
 
-    risks = [f"- Piotroski {q['piotroski']['score']}/9 → calidad contable {q['piotroski']['label'].lower()}."]
+    risks = ([f"- Piotroski {q['piotroski']['score']}/9 → calidad contable {q['piotroski']['label'].lower()}."]
+             if q["piotroski"]["score"] is not None else ["- Piotroski: datos insuficientes."])
     if q["altman_z"]["score"] is not None:
         risks.append(f"- Altman Z {q['altman_z']['score']} → zona {q['altman_z']['zone'].lower()}.")
     if de is not None and de > 1.5:

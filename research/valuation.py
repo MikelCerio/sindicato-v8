@@ -121,6 +121,8 @@ def piotroski_f_score(income: pd.DataFrame, balance: pd.DataFrame, cashflow: pd.
             return None, None
         return _num(s.iloc[0]), _num(s.iloc[1])
 
+    if income is None or income.empty or balance is None or balance.empty or income.shape[1] < 2:
+        return {"score": None, "max": 9, "label": "Datos insuficientes", "checks": {}}
     ni, ni_p = pair(income, "Net Income")
     ta, ta_p = pair(balance, "Total Assets")
     ocf, _ = pair(cashflow, "Operating Cash Flow")

@@ -199,3 +199,42 @@ def test_report_with_ai(hub):
         create=lambda **kw: SimpleNamespace(choices=[SimpleNamespace(message=msg)]))))
     rep = EquityReportGenerator(hub, client=client).generate("ACME")
     assert rep.ai_generated and rep.sections["valoracion"] == "Texto valoracion"
+
+
+# --------------------------------------------------------- sin red / sin datos
+class EmptyTicker:
+    def __init__(self, s):
+        self.info, self.news = {}, []
+        self.income_stmt = self.balance_sheet = self.cashflow = pd.DataFrame()
+        self.quarterly_income_stmt = self.quarterly_balance_sheet = self.quarterly_cashflow = pd.DataFrame()
+
+    def history(self, **kw):
+        return pd.DataFrame()
+
+
+def down_http_get(url, headers=None, timeout=None):
+    raise ConnectionError("sin red")
+
+
+def test_no_data_is_reported_honestly():
+    from research import NoMarketData
+    h = DataHub(ticker_factory=EmptyTicker, http_get=down_http_get)
+    assert h.sec_fundamentals("MSFT")["error"] == "SEC no disponible ahora mismo"
+    assert "error" in h.sec_filings("MSFT")[0]
+    assert valuation.quality_scores(h, "MSFT")["piotroski"]["score"] is None
+    with pytest.raises(NoMarketData):
+        EquityReportGenerator(h, use_ai=False).generate("MSFT")
+
+
+def test_sec_retries_after_failure():
+    state = {"up": False}
+
+    def flaky(url, headers=None, timeout=None):
+        if not state["up"]:
+            raise ConnectionError
+        return fake_http_get(url)
+
+    h = DataHub(ticker_factory=FakeTicker, http_get=flaky)
+    assert "error" in h.sec_filings("ACME")[0]
+    state["up"] = True
+    assert h.sec_filings("ACME")[0]["form"] == "10-K"
