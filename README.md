@@ -104,6 +104,40 @@ print(public_url)
 
 ---
 
+## 🤖 Copiloto e informes automáticos (nuevo)
+
+Dos pestañas nuevas al principio de la app:
+
+| Pestaña | Qué hace |
+|---|---|
+| **🤖 COPILOTO** | Chat en lenguaje natural. El agente usa *function calling* para consultar datos reales (cotización, estados financieros, ratios, consenso, noticias, SEC, DCF, Piotroski/Altman, comparativas) y muestra qué ha consultado. |
+| **📑 INFORME AUTO** | Genera un informe de análisis completo de la empresa (resumen, negocio, finanzas, valoración, riesgos, qué vigilar) con tablas y fuentes. Descargable en HTML y Markdown. Sin API key funciona en modo "solo datos". |
+
+Código en `research/` (ligero, sin Streamlit ni OpenBB, funciona en Python 3.13 / Streamlit Cloud):
+
+```
+research/
+├── data_hub.py    # Datos: yfinance + SEC EDGAR (filings y XBRL)
+├── valuation.py   # DCF, DCF inverso, sensibilidad, CAPM, Piotroski, Altman
+├── tools.py       # Herramientas que puede llamar el agente
+├── copilot.py     # Bucle agente: LLM ⇄ herramientas
+└── report.py      # Pipeline de informe: datos → redacción IA → HTML/MD
+```
+
+Uso desde Python o Colab:
+
+```python
+from research import FinancialCopilot, EquityReportGenerator
+print(FinancialCopilot().ask("¿Está cara MSFT frente a GOOGL?").content)
+open("MSFT.html", "w").write(EquityReportGenerator().generate("MSFT").to_html())
+```
+
+Tests (sin red ni API key): `pytest -q`
+
+Inspirado en FinRobot y OpenBB, sin copiar su código: ver [NOTICE.md](NOTICE.md).
+
+---
+
 ## 📁 Estructura del Proyecto
 
 ```

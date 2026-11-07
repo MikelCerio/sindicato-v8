@@ -321,7 +321,9 @@ if st.session_state.debate_raw:
 st.markdown("---")
 
 # Tabs (estructura temporal - pendiente reorganización UX)
-tabs = st.tabs([
+copilot_tab, report_tab, *tabs = st.tabs([
+    "🤖 COPILOTO",
+    "📑 INFORME AUTO",
     "📊 DATOS",
     "🧠 OPENBB",
     "🕵️ DESCUBRIR",
@@ -335,6 +337,18 @@ tabs = st.tabs([
     "📂 DOCS",
     "📄 SEC"
 ])
+
+# ============================================================================
+# COPILOTO + INFORME AUTOMÁTICO (research/)
+# ============================================================================
+
+from components.research_ui import render_copilot_tab, render_report_tab
+
+with copilot_tab:
+    render_copilot_tab(ticker)
+
+with report_tab:
+    render_report_tab(ticker)
 
 # ============================================================================
 # TAB 0: DATOS - Vista General (Enhanced)
