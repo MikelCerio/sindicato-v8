@@ -67,3 +67,12 @@ temp/
 
 # Colab
 sample_data/
+
+# Biblioteca personal: libros y documentos con copyright NO se suben al repo
+# (guárdalos en local o en tu Drive privado; los 10-K de la SEC sí se pueden versionar)
+1_BIBLIOTECA/*.epub
+1_BIBLIOTECA/*.mobi
+1_BIBLIOTECA/*.azw3
+1_BIBLIOTECA/Carta_Buffett_*.html
+1_BIBLIOTECA/Investor Relations*
+biblioteca_maestra/
